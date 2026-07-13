@@ -1,0 +1,62 @@
+# Virtual Environment
+venv/
+.env/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Notebook Checkpoints
+.ipynb_checkpoints/
+
+# VS Code
+.vscode/
+
+# PyCharm
+.idea/
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Environment Variables
+.env
+
+# SQLite
+*.db
+*.sqlite3
+
+# Outputs
+outputs/
+
+# Processed Data
+data/processed/
+
+# Cache
+.cache/
+
+# Temporary Files
+*.tmp
+
+# Distribution
+build/
+dist/
+*.egg-info/
+
+# Coverage
+.coverage
+htmlcov/
+
+# pytest
+.pytest_cache/
+
+# Mypy
+.mypy_cache/
