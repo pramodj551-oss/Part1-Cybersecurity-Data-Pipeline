@@ -1,0 +1,236 @@
+# AI-Powered Cybersecurity Data Pipeline
+
+![Python](https://img.shields.io/badge/Python-3.11-blue)
+![Pandas](https://img.shields.io/badge/Pandas-Data%20Cleaning-green)
+![SQLite](https://img.shields.io/badge/SQLite-Database-blue)
+![License](https://img.shields.io/badge/License-MIT-yellow)
+
+## Project Overview
+
+This project is Part 1 of the End-to-End Applied AI & ML Data Product Capstone.
+
+The objective is to transform raw cybersecurity incident data into a clean, validated, and query-ready data asset suitable for analytics, machine learning, and dashboard development.
+
+This repository focuses on **Descriptive Analytics** by answering:
+
+> **What happened?**
+
+The final output is a production-ready dataset stored as CSV and SQLite Database.
+
+---
+
+# Business Problem
+
+Security teams receive thousands of security logs every day.
+
+These logs contain
+
+- Missing values
+- Duplicate records
+- Invalid timestamps
+- Inconsistent attack names
+- Incorrect severity labels
+
+Such data cannot directly be used for analytics.
+
+This project builds a robust ETL pipeline that cleans, validates and stores the data.
+
+---
+
+# Analytics Type
+
+✔ Descriptive Analytics
+
+Business Question:
+
+**What happened in the cybersecurity environment?**
+
+---
+
+# Dataset
+
+Dataset Name
+
+Cyber Security Attacks Dataset
+
+Recommended Source
+
+https://www.kaggle.com/
+
+Example Columns
+
+- incident_id
+- timestamp
+- source_ip
+- destination_ip
+- protocol
+- attack_type
+- severity
+- country
+- device
+- action
+- status
+- description
+
+Place the dataset inside
+
+data/raw/
+
+Example
+
+data/raw/cybersecurity_incidents.csv
+
+---
+
+# Project Structure
+
+```
+
+Part1-Cybersecurity-Data-Pipeline/
+
+├── data/
+│ ├── raw/
+│ └── processed/
+│
+├── outputs/
+│ ├── incidents.db
+│ ├── summary_report.csv
+│ └── cleaning_report.json
+│
+├── notebooks/
+│ └── EDA.ipynb
+│
+├── sql/
+│ └── queries.sql
+│
+├── src/
+│ ├── config.py
+│ ├── data_loader.py
+│ ├── data_cleaning.py
+│ ├── feature_engineering.py
+│ ├── database.py
+│ └── pipeline.py
+│
+├── run_pipeline.py
+├── requirements.txt
+├── README.md
+└── .gitignore
+
+```
+
+---
+
+# Features
+
+- CSV Validation
+- Missing Value Handling
+- Duplicate Removal
+- Timestamp Formatting
+- IP Address Validation
+- Severity Normalization
+- Attack Type Standardization
+- Country Cleaning
+- Feature Engineering
+- SQLite Storage
+- Summary Report Generation
+- Data Quality Report
+- SQL Queries
+
+---
+
+# Installation
+
+Clone repository
+
+```bash
+git clone https://github.com/yourusername/Part1-Cybersecurity-Data-Pipeline.git
+
+cd Part1-Cybersecurity-Data-Pipeline
+```
+
+Create Virtual Environment
+
+```bash
+python -m venv venv
+```
+
+Activate
+
+Windows
+
+```bash
+venv\Scripts\activate
+```
+
+Linux/Mac
+
+```bash
+source venv/bin/activate
+```
+
+Install packages
+
+```bash
+pip install -r requirements.txt
+```
+
+---
+
+# Run Pipeline
+
+```bash
+python run_pipeline.py
+```
+
+---
+
+# Output
+
+Pipeline generates
+
+```
+clean_incidents.csv
+
+incidents.db
+
+summary_report.csv
+
+cleaning_report.json
+```
+
+---
+
+# Technologies
+
+- Python
+- Pandas
+- NumPy
+- SQLite
+- SQLAlchemy
+- Logging
+- Jupyter Notebook
+
+---
+
+# Future Improvements
+
+- PostgreSQL Support
+- Apache Airflow Scheduling
+- Docker Deployment
+- AWS S3 Storage
+- Streamlit Dashboard
+- ML Prediction Integration
+
+---
+
+# Author
+
+Pramod Prakash Jadhav
+
+AI/ML Developer | Cybersecurity Enthusiast
+
+---
+
+# License
+
+MIT License
