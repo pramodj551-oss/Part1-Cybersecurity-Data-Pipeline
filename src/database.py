@@ -20,6 +20,7 @@ from src.config import (
     DATABASE_TABLE,
     ENGINEERED_DATA_FILE,
     LOG_FILE,
+    OUTPUT_DIR,
 )
 
 # ==========================================================
@@ -170,7 +171,8 @@ class DatabaseManager:
         )
 
         print("=" * 60)
-          # ======================================================
+
+    # ======================================================
     # Create Table
     # ======================================================
 
@@ -397,8 +399,9 @@ class DatabaseManager:
 
         logger.info(
             "Table verification successful."
-)
-          # ======================================================
+        )
+
+    # ======================================================
     # Execute SQL Query
     # ======================================================
 
@@ -554,12 +557,19 @@ class DatabaseManager:
     def export_query_results(
         self,
         query: str,
-        output_file=QUERY_RESULTS_FILE,
+        output_file=None,
     ):
         """
         Export SQL query results
         to CSV file.
+
+        If output_file is not provided,
+        defaults to OUTPUT_DIR / "query_results.csv".
         """
+
+        if output_file is None:
+
+            output_file = OUTPUT_DIR / "query_results.csv"
 
         logger.info(
             "Exporting query results..."
@@ -606,7 +616,8 @@ class DatabaseManager:
         """
 
         return self.fetch_dataframe(query)
-          # ======================================================
+
+    # ======================================================
     # Close Database Connection
     # ======================================================
 
@@ -688,7 +699,9 @@ class DatabaseManager:
         finally:
 
             self.close()
-          # ==========================================================
+
+
+# ==========================================================
 # Standalone Execution
 # ==========================================================
 
@@ -723,4 +736,4 @@ if __name__ == "__main__":
         print("\nDatabase Error")
 
         print(error)
-      
+        
