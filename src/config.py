@@ -1,3 +1,7 @@
+CSV_ENCODING = "utf-8"
+
+CSV_SEPARATOR = ","
+
 """
 Project Configuration
 
