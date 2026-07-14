@@ -1,4 +1,3 @@
-
 """
 Project Configuration
 
@@ -68,6 +67,10 @@ RAW_DATA_FILE = RAW_DATA_DIR / "cybersecurity_incident_reports.csv"
 
 CLEAN_DATA_FILE = (
     PROCESSED_DATA_DIR / "clean_incidents.csv"
+)
+
+ENGINEERED_DATA_FILE = (
+    PROCESSED_DATA_DIR / "engineered_incidents.csv"
 )
 
 DATABASE_FILE = OUTPUT_DIR / "incidents.db"
