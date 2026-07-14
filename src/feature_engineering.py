@@ -1,9 +1,8 @@
 """
-feature_engineering.py
-
-AI-Powered Cybersecurity Data Pipeline
-
 Feature Engineering Module
+
+Creates analytical and machine learning features
+from the cleaned cybersecurity incidents dataset.
 
 Author:
 Pramod Prakash Jadhav
@@ -12,281 +11,574 @@ Pramod Prakash Jadhav
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 
 import pandas as pd
 
-from config import (
+import numpy as np
+
+from src.config import (
     CLEAN_DATA_FILE,
-    SUMMARY_REPORT,
     LOG_FILE,
+    SUMMARY_REPORT_FILE,
 )
 
-# ---------------------------------------------------------------------
-# Logging Configuration
-# ---------------------------------------------------------------------
-
-logging.basicConfig(
-    filename=LOG_FILE,
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(message)s",
-)
+# ==========================================================
+# Logger Configuration
+# ==========================================================
 
 logger = logging.getLogger(__name__)
+
+if not logger.handlers:
+
+    logging.basicConfig(
+        filename=LOG_FILE,
+        level=logging.INFO,
+        format="%(asctime)s | %(levelname)s | %(message)s",
+    )
 
 
 class FeatureEngineer:
     """
-    Production-grade Feature Engineering Pipeline.
+    Production Feature Engineering Pipeline.
 
     Responsibilities
     ----------------
-    - Time-based feature extraction
-    - Business-hour identification
-    - Weekend identification
-    - Severity scoring
-    - Frequency encoding
-    - Summary generation
+    - Date Feature Extraction
+    - Financial Feature Engineering
+    - Operational Metrics
+    - Risk Feature Creation
+    - Frequency Encoding
     """
 
     def __init__(self, dataframe: pd.DataFrame):
 
         self.df = dataframe.copy()
 
-        logger.info("FeatureEngineer initialized.")
+        logger.info(
+            "FeatureEngineer initialized."
+        )
 
-    # -------------------------------------------------------
-    # Datetime Features
-    # -------------------------------------------------------
+    # ======================================================
+    # Date Features
+    # ======================================================
 
-    def create_datetime_features(self):
+    def create_date_features(self):
         """
-        Create multiple time-based analytical features.
+        Extract useful features from incident_date.
         """
 
-        if "timestamp" not in self.df.columns:
+        if "incident_date" not in self.df.columns:
 
             logger.warning(
-                "Timestamp column not found."
+                "incident_date column not found."
             )
 
             return
 
         logger.info(
-            "Generating datetime features..."
+            "Creating date features..."
         )
 
-        self.df["year"] = self.df["timestamp"].dt.year
-
-        self.df["month"] = self.df["timestamp"].dt.month
-
-        self.df["day"] = self.df["timestamp"].dt.day
-
-        self.df["hour"] = self.df["timestamp"].dt.hour
-
-        self.df["minute"] = self.df["timestamp"].dt.minute
-
-        self.df["day_of_week"] = (
-            self.df["timestamp"]
-            .dt.day_name()
+        self.df["incident_year"] = (
+            self.df["incident_date"].dt.year
         )
 
-        self.df["week_number"] = (
-            self.df["timestamp"]
+        self.df["incident_month"] = (
+            self.df["incident_date"].dt.month
+        )
+
+        self.df["incident_day"] = (
+            self.df["incident_date"].dt.day
+        )
+
+        self.df["incident_week"] = (
+            self.df["incident_date"]
             .dt.isocalendar()
             .week
             .astype(int)
         )
 
-        self.df["quarter"] = (
-            self.df["timestamp"]
-            .dt.quarter
+        self.df["incident_quarter"] = (
+            self.df["incident_date"].dt.quarter
+        )
+
+        self.df["incident_weekday"] = (
+            self.df["incident_date"]
+            .dt.day_name()
         )
 
         logger.info(
-            "Datetime feature engineering completed."
+            "Date features created successfully."
         )
 
-    # -------------------------------------------------------
-    # Weekend Feature
-    # -------------------------------------------------------
+    # ======================================================
+    # Weekend Indicator
+    # ======================================================
 
     def create_weekend_flag(self):
         """
-        Create binary weekend indicator.
+        Create weekend indicator.
 
-        1 = Saturday/Sunday
-        0 = Weekday
+        Saturday = 1
+        Sunday = 1
+        Weekday = 0
         """
 
-        if "timestamp" not in self.df.columns:
+        if "incident_date" not in self.df.columns:
+
             return
 
         logger.info(
-            "Creating weekend feature..."
+            "Creating weekend flag..."
         )
 
         self.df["is_weekend"] = (
-            self.df["timestamp"]
+            self.df["incident_date"]
             .dt.weekday
             .isin([5, 6])
             .astype(int)
         )
 
-    # -------------------------------------------------------
-    # Business Hour Feature
-    # -------------------------------------------------------
+    # ======================================================
+    # Month Name
+    # ======================================================
 
-    def create_business_hour_flag(self):
+    def create_month_name(self):
         """
-        Business Hours
-
-        09:00 AM to 06:00 PM
+        Create month name feature.
         """
 
-        if "hour" not in self.df.columns:
-
-            self.create_datetime_features()
-
-        logger.info(
-            "Creating business hour feature..."
-        )
-
-        self.df["business_hours"] = (
-            self.df["hour"]
-            .between(9, 18)
-            .astype(int)
-        )
-
-    # -------------------------------------------------------
-    # Night Attack Indicator
-    # -------------------------------------------------------
-
-    def create_night_attack_flag(self):
-        """
-        Identify attacks occurring at night.
-
-        Night:
-        10 PM - 5 AM
-        """
-
-        if "hour" not in self.df.columns:
-
-            self.create_datetime_features()
-
-        logger.info(
-            "Creating night attack indicator..."
-        )
-
-        self.df["night_attack"] = (
-            (
-                self.df["hour"] >= 22
-            ) |
-            (
-                self.df["hour"] <= 5
-            )
-        ).astype(int)
-
-    # -------------------------------------------------------
-    # Working Shift Feature
-    # -------------------------------------------------------
-
-    def create_shift_feature(self):
-        """
-        Categorize incidents by shift.
-
-        Morning : 06–13
-
-        Evening : 14–21
-
-        Night : 22–05
-        """
-
-        if "hour" not in self.df.columns:
-
-            self.create_datetime_features()
-
-        logger.info(
-            "Generating shift categories..."
-        )
-
-        def get_shift(hour):
-
-            if 6 <= hour <= 13:
-                return "Morning"
-
-            elif 14 <= hour <= 21:
-                return "Evening"
-
-            else:
-                return "Night"
-
-        self.df["shift"] = (
-            self.df["hour"]
-            .apply(get_shift)
-        )
-
-        logger.info(
-            "Shift feature created successfully."
-        )
-          # -------------------------------------------------------
-    # Severity Score Mapping
-    # -------------------------------------------------------
-
-    def create_severity_score(self):
-        """
-        Convert categorical severity into numerical scores.
-
-        Mapping
-        -------
-        Low       -> 1
-        Medium    -> 2
-        High      -> 3
-        Critical  -> 4
-        """
-
-        if "severity" not in self.df.columns:
-
-            logger.warning("Severity column not found.")
+        if "incident_date" not in self.df.columns:
 
             return
 
-        logger.info("Creating severity score...")
-
-        severity_map = {
-            "Low": 1,
-            "Medium": 2,
-            "High": 3,
-            "Critical": 4,
-        }
-
-        self.df["severity_score"] = (
-            self.df["severity"]
-            .map(severity_map)
-            .fillna(2)
-            .astype(int)
+        logger.info(
+            "Creating month name..."
         )
 
-        logger.info("Severity score created successfully.")
+        self.df["month_name"] = (
+            self.df["incident_date"]
+            .dt.month_name()
+        )
 
-    # -------------------------------------------------------
-    # Attack Frequency Encoding
-    # -------------------------------------------------------
+    # ======================================================
+    # Incident Age
+    # ======================================================
+
+    def create_incident_age(self):
+        """
+        Calculate age of incident in days
+        from latest incident available.
+        """
+
+        if "incident_date" not in self.df.columns:
+
+            return
+
+        logger.info(
+            "Calculating incident age..."
+        )
+
+        latest_date = (
+            self.df["incident_date"]
+            .max()
+        )
+
+        self.df["incident_age_days"] = (
+            latest_date
+            - self.df["incident_date"]
+        ).dt.days
+
+        logger.info(
+            "Incident age calculated."
+        )
+
+    # ======================================================
+    # Quarterly Indicator
+    # ======================================================
+
+    def create_quarter_label(self):
+        """
+        Create quarter labels.
+
+        Example
+
+        Q1
+        Q2
+        Q3
+        Q4
+        """
+
+        if "incident_quarter" not in self.df.columns:
+
+            self.create_date_features()
+
+        logger.info(
+            "Creating quarter labels..."
+        )
+
+        self.df["quarter_label"] = (
+            "Q"
+            + self.df["incident_quarter"]
+            .astype(str)
+        )
+
+        logger.info(
+            "Quarter labels created."
+        )
+            # ======================================================
+    # Ransom Per Record
+    # ======================================================
+
+    def create_ransom_per_record(self):
+        """
+        Calculate ransom demand per affected record.
+        """
+
+        logger.info("Creating ransom_per_record feature...")
+
+        self.df["ransom_per_record"] = (
+            self.df["ransom_demand_usd"]
+            /
+            self.df["records_affected"].replace(0, 1)
+        ).round(2)
+
+        logger.info("ransom_per_record created.")
+
+    # ======================================================
+    # Regulatory Fine Per Record
+    # ======================================================
+
+    def create_fine_per_record(self):
+        """
+        Calculate regulatory fine per affected record.
+        """
+
+        logger.info("Creating fine_per_record feature...")
+
+        self.df["fine_per_record"] = (
+            self.df["regulatory_fine_usd"]
+            /
+            self.df["records_affected"].replace(0, 1)
+        ).round(2)
+
+        logger.info("fine_per_record created.")
+
+    # ======================================================
+    # Total Financial Impact
+    # ======================================================
+
+    def create_total_financial_impact(self):
+        """
+        Calculate total financial impact.
+
+        Formula:
+        ransom + regulatory fine
+        """
+
+        logger.info("Creating total_financial_impact...")
+
+        self.df["total_financial_impact"] = (
+
+            self.df["ransom_demand_usd"]
+
+            +
+
+            self.df["regulatory_fine_usd"]
+
+        )
+
+        logger.info(
+            "total_financial_impact created."
+        )
+
+    # ======================================================
+    # Downtime Per Record
+    # ======================================================
+
+    def create_downtime_per_record(self):
+        """
+        Average downtime per affected record.
+        """
+
+        logger.info(
+            "Creating downtime_per_record..."
+        )
+
+        self.df["downtime_per_record"] = (
+
+            self.df["downtime_hours"]
+
+            /
+
+            self.df["records_affected"]
+            .replace(0, 1)
+
+        ).round(4)
+
+        logger.info(
+            "downtime_per_record created."
+        )
+
+    # ======================================================
+    # Response Efficiency Score
+    # ======================================================
+
+    def create_response_efficiency(self):
+        """
+        Calculate response efficiency.
+
+        Formula:
+
+        response_team_size
+        ------------------
+        detection_time_hours
+        """
+
+        logger.info(
+            "Creating response_efficiency..."
+        )
+
+        self.df["response_efficiency"] = (
+
+            self.df["response_team_size"]
+
+            /
+
+            self.df["detection_time_hours"]
+            .replace(0, 1)
+
+        ).round(2)
+
+        logger.info(
+            "response_efficiency created."
+        )
+
+    # ======================================================
+    # Detection Speed Category
+    # ======================================================
+
+    def create_detection_speed_category(self):
+        """
+        Categorize incident detection speed.
+        """
+
+        logger.info(
+            "Creating detection speed category..."
+        )
+
+        bins = [
+
+            -1,
+
+            6,
+
+            24,
+
+            72,
+
+            float("inf")
+
+        ]
+
+        labels = [
+
+            "Very Fast",
+
+            "Fast",
+
+            "Moderate",
+
+            "Slow"
+
+        ]
+
+        self.df["detection_speed"] = pd.cut(
+
+            self.df["detection_time_hours"],
+
+            bins=bins,
+
+            labels=labels,
+
+        )
+
+        logger.info(
+            "Detection speed category created."
+        )
+
+    # ======================================================
+    # Incident Cost Category
+    # ======================================================
+
+    def create_incident_cost_category(self):
+        """
+        Categorize incidents
+        based on financial impact.
+        """
+
+        logger.info(
+            "Creating incident cost category..."
+        )
+
+        self.df["incident_cost_category"] = pd.qcut(
+
+            self.df["total_financial_impact"],
+
+            q=4,
+
+            labels=[
+                "Low",
+                "Medium",
+                "High",
+                "Critical",
+            ],
+
+            duplicates="drop",
+
+        )
+
+        logger.info(
+            "Incident cost category created."
+        )
+            # ======================================================
+    # High Severity Flag
+    # ======================================================
+
+    def create_high_severity_flag(self):
+        """
+        Create binary flag for high severity incidents.
+        """
+
+        logger.info("Creating high severity flag...")
+
+        self.df["high_severity_flag"] = (
+            self.df["severity_score"] >= 8
+        ).astype(int)
+
+        logger.info("high_severity_flag created.")
+
+    # ======================================================
+    # High Ransom Flag
+    # ======================================================
+
+    def create_high_ransom_flag(self):
+        """
+        Flag incidents having ransom demand
+        above the dataset median.
+        """
+
+        logger.info("Creating high ransom flag...")
+
+        threshold = self.df[
+            "ransom_demand_usd"
+        ].median()
+
+        self.df["high_ransom_flag"] = (
+            self.df["ransom_demand_usd"] >= threshold
+        ).astype(int)
+
+        logger.info("high_ransom_flag created.")
+
+    # ======================================================
+    # Large Breach Flag
+    # ======================================================
+
+    def create_large_breach_flag(self):
+        """
+        Flag incidents affecting
+        unusually high number of records.
+        """
+
+        logger.info("Creating large breach flag...")
+
+        threshold = self.df[
+            "records_affected"
+        ].median()
+
+        self.df["large_breach_flag"] = (
+            self.df["records_affected"] >= threshold
+        ).astype(int)
+
+        logger.info("large_breach_flag created.")
+
+    # ======================================================
+    # Long Downtime Flag
+    # ======================================================
+
+    def create_long_downtime_flag(self):
+        """
+        Flag incidents having long downtime.
+        """
+
+        logger.info("Creating long downtime flag...")
+
+        threshold = self.df[
+            "downtime_hours"
+        ].median()
+
+        self.df["long_downtime_flag"] = (
+            self.df["downtime_hours"] >= threshold
+        ).astype(int)
+
+        logger.info("long_downtime_flag created.")
+
+    # ======================================================
+    # Sector Frequency Encoding
+    # ======================================================
+
+    def create_sector_frequency(self):
+        """
+        Frequency encode sector column.
+        """
+
+        logger.info("Creating sector frequency...")
+
+        frequency = (
+            self.df["sector"]
+            .value_counts()
+            .to_dict()
+        )
+
+        self.df["sector_frequency"] = (
+            self.df["sector"]
+            .map(frequency)
+        )
+
+    # ======================================================
+    # Region Frequency Encoding
+    # ======================================================
+
+    def create_region_frequency(self):
+        """
+        Frequency encode region column.
+        """
+
+        logger.info("Creating region frequency...")
+
+        frequency = (
+            self.df["region"]
+            .value_counts()
+            .to_dict()
+        )
+
+        self.df["region_frequency"] = (
+            self.df["region"]
+            .map(frequency)
+        )
+
+    # ======================================================
+    # Attack Type Frequency
+    # ======================================================
 
     def create_attack_frequency(self):
         """
-        Create frequency encoding for attack types.
+        Frequency encode attack type.
         """
 
-        if "attack_type" not in self.df.columns:
+        logger.info("Creating attack frequency...")
 
-            logger.warning("Attack type column not found.")
-
-            return
-
-        logger.info("Generating attack frequency...")
-
-        attack_frequency = (
+        frequency = (
             self.df["attack_type"]
             .value_counts()
             .to_dict()
@@ -294,332 +586,104 @@ class FeatureEngineer:
 
         self.df["attack_frequency"] = (
             self.df["attack_type"]
-            .map(attack_frequency)
-            .astype(int)
+            .map(frequency)
         )
 
-        logger.info("Attack frequency feature created.")
+    # ======================================================
+    # Threat Actor Frequency
+    # ======================================================
 
-    # -------------------------------------------------------
-    # Country Frequency Encoding
-    # -------------------------------------------------------
-
-    def create_country_frequency(self):
+    def create_threat_actor_frequency(self):
         """
-        Frequency encoding for country column.
+        Frequency encode threat actor.
         """
 
-        if "country" not in self.df.columns:
+        logger.info("Creating threat actor frequency...")
 
-            logger.warning("Country column not found.")
-
-            return
-
-        logger.info("Generating country frequency...")
-
-        country_frequency = (
-            self.df["country"]
+        frequency = (
+            self.df["threat_actor"]
             .value_counts()
             .to_dict()
         )
 
-        self.df["country_frequency"] = (
-            self.df["country"]
-            .map(country_frequency)
-            .astype(int)
+        self.df["threat_actor_frequency"] = (
+            self.df["threat_actor"]
+            .map(frequency)
         )
 
-        logger.info("Country frequency feature created.")
-
-    # -------------------------------------------------------
-    # Device Frequency Encoding
-    # -------------------------------------------------------
-
-    def create_device_frequency(self):
-        """
-        Frequency encoding for device column.
-        """
-
-        if "device" not in self.df.columns:
-
-            logger.warning("Device column not found.")
-
-            return
-
-        logger.info("Generating device frequency...")
-
-        device_frequency = (
-            self.df["device"]
-            .value_counts()
-            .to_dict()
-        )
-
-        self.df["device_frequency"] = (
-            self.df["device"]
-            .map(device_frequency)
-            .astype(int)
-        )
-
-        logger.info("Device frequency feature created.")
-
-    # -------------------------------------------------------
-    # Action Frequency Encoding
-    # -------------------------------------------------------
-
-    def create_action_frequency(self):
-        """
-        Frequency encoding for action column.
-        """
-
-        if "action" not in self.df.columns:
-
-            logger.warning("Action column not found.")
-
-            return
-
-        logger.info("Generating action frequency...")
-
-        action_frequency = (
-            self.df["action"]
-            .value_counts()
-            .to_dict()
-        )
-
-        self.df["action_frequency"] = (
-            self.df["action"]
-            .map(action_frequency)
-            .astype(int)
-        )
-
-        logger.info("Action frequency feature created.")
-          # -------------------------------------------------------
-    # Protocol Encoding
-    # -------------------------------------------------------
-
-    def encode_protocol(self):
-        """
-        Encode protocol names into integer values.
-
-        Unknown protocols receive code 0.
-        """
-
-        if "protocol" not in self.df.columns:
-
-            logger.warning("Protocol column not found.")
-
-            return
-
-        logger.info("Encoding protocol column...")
-
-        protocol_map = {
-            "TCP": 1,
-            "UDP": 2,
-            "ICMP": 3,
-            "HTTP": 4,
-            "HTTPS": 5,
-            "FTP": 6,
-            "SSH": 7,
-            "SMTP": 8,
-            "DNS": 9,
-        }
-
-        self.df["protocol"] = (
-            self.df["protocol"]
-            .astype(str)
-            .str.upper()
-            .str.strip()
-        )
-
-        self.df["protocol_code"] = (
-            self.df["protocol"]
-            .map(protocol_map)
-            .fillna(0)
-            .astype(int)
-        )
-
-        logger.info("Protocol encoding completed.")
-
-    # -------------------------------------------------------
-    # Status Encoding
-    # -------------------------------------------------------
-
-    def encode_status(self):
-        """
-        Encode incident status.
-        """
-
-        if "status" not in self.df.columns:
-
-            logger.warning("Status column not found.")
-
-            return
-
-        logger.info("Encoding status column...")
-
-        status_map = {
-            "Open": 1,
-            "In Progress": 2,
-            "Resolved": 3,
-            "Closed": 4,
-            "Unknown": 0,
-        }
-
-        self.df["status"] = (
-            self.df["status"]
-            .astype(str)
-            .str.title()
-            .str.strip()
-        )
-
-        self.df["status_code"] = (
-            self.df["status"]
-            .map(status_map)
-            .fillna(0)
-            .astype(int)
-        )
-
-    # -------------------------------------------------------
-    # Risk Score
-    # -------------------------------------------------------
+    # ======================================================
+    # Composite Risk Score
+    # ======================================================
 
     def create_risk_score(self):
         """
-        Generate a weighted risk score.
-
-        Formula
-        -------
-        Risk Score =
-            Severity Score
-            + Night Attack
-            + Weekend
-            + Business Hour
+        Calculate composite cybersecurity risk score.
         """
 
-        logger.info("Calculating risk score...")
-
-        required = [
-            "severity_score",
-            "night_attack",
-            "is_weekend",
-            "business_hours",
-        ]
-
-        for column in required:
-
-            if column not in self.df.columns:
-
-                logger.warning(
-                    "%s missing. Creating default values.",
-                    column,
-                )
-
-                self.df[column] = 0
+        logger.info("Creating risk score...")
 
         self.df["risk_score"] = (
-            self.df["severity_score"] * 2
-            + self.df["night_attack"]
-            + self.df["is_weekend"]
-            + self.df["business_hours"]
+
+            self.df["severity_score"] * 3
+
+            +
+
+            self.df["zero_day_used"].astype(int) * 2
+
+            +
+
+            self.df["data_exfiltration"].astype(int) * 2
+
+            +
+
+            self.df["high_ransom_flag"]
+
+            +
+
+            self.df["large_breach_flag"]
+
         )
 
-        logger.info("Risk score generated.")
+        logger.info("risk_score created.")
 
-    # -------------------------------------------------------
-    # High Risk Flag
-    # -------------------------------------------------------
+    # ======================================================
+    # Incident Complexity Score
+    # ======================================================
 
-    def create_high_risk_flag(self):
+    np.log(value)
+    
+    def create_incident_complexity_score(self):
         """
-        Binary indicator for high-risk incidents.
-        """
-
-        if "risk_score" not in self.df.columns:
-
-            self.create_risk_score()
-
-        logger.info("Generating High Risk flag...")
-
-        self.df["high_risk"] = (
-            self.df["risk_score"] >= 7
-        ).astype(int)
-
-    # -------------------------------------------------------
-    # Critical Incident Flag
-    # -------------------------------------------------------
-
-    def create_critical_flag(self):
-        """
-        Identify critical incidents.
+        Estimate operational complexity of incident.
         """
 
-        if "severity" not in self.df.columns:
-
-            return
-
-        logger.info("Generating Critical Incident flag...")
-
-        self.df["critical_incident"] = (
-            self.df["severity"]
-            .eq("Critical")
-            .astype(int)
+        logger.info(
+            "Creating incident complexity score..."
         )
 
-    # -------------------------------------------------------
-    # Peak Hour Indicator
-    # -------------------------------------------------------
+        self.df["incident_complexity_score"] = (
 
-    def create_peak_hour_flag(self):
-        """
-        Peak attack hours:
-        10 AM–12 PM and 6 PM–9 PM
-        """
+            self.df["severity_score"]
 
-        if "hour" not in self.df.columns:
+            +
 
-            self.create_datetime_features()
+            (
+                self.df["records_affected"] + 1
+            ).apply(
+                lambda value: pd.np.log(value)
+            )
 
-        logger.info("Generating Peak Hour feature...")
+            +
 
-        self.df["peak_hour"] = (
-            self.df["hour"].between(10, 12)
-            |
-            self.df["hour"].between(18, 21)
-        ).astype(int)
+            self.df["downtime_hours"] / 24
 
-    # -------------------------------------------------------
-    # Business Impact Score
-    # -------------------------------------------------------
+            +
 
-    def create_business_impact_score(self):
-        """
-        Estimate business impact score.
+            self.df["detection_time_hours"] / 24
 
-        Formula
-        -------
-        (Severity × 2)
-        + Critical Flag
-        + High Risk Flag
-        """
+        ).round(2)
 
-        logger.info("Calculating Business Impact Score...")
-
-        required = [
-            "severity_score",
-            "critical_incident",
-            "high_risk",
-        ]
-
-        for column in required:
-
-            if column not in self.df.columns:
-
-                self.df[column] = 0
-
-        self.df["business_impact_score"] = (
-            self.df["severity_score"] * 2
-            + self.df["critical_incident"] * 3
-            + self.df["high_risk"] * 2
-        )
-
-        logger.info("Business Impact Score generated.")
-      
+        logger.info(
+            "incident_complexity_score created."
+    )
+        
