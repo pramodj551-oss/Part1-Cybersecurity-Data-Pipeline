@@ -1,7 +1,3 @@
-CSV_ENCODING = "utf-8"
-
-CSV_SEPARATOR = ","
-
 """
 Project Configuration
 
@@ -12,6 +8,22 @@ Author: Pramod Prakash Jadhav
 """
 
 from pathlib import Path
+
+# ==========================================================
+# Project Metadata
+# ==========================================================
+
+PROJECT_NAME = "Cybersecurity Incident Analytics"
+
+PIPELINE_VERSION = "2.0.0"
+
+# ==========================================================
+# CSV Settings
+# ==========================================================
+
+CSV_ENCODING = "utf-8"
+
+CSV_SEPARATOR = ","
 
 # ==========================================================
 # Project Paths
@@ -184,8 +196,3 @@ DATABASE_TABLE = "cybersecurity_incidents"
 # ==========================================================
 
 RANDOM_SEED = 42
-PROJECT_NAME = "Cybersecurity Incident Analytics"
-
-DATABASE_TABLE = "cybersecurity_incidents"
-
-PIPELINE_VERSION = "2.0.0"
