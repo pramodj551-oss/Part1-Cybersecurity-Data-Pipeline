@@ -17,7 +17,11 @@ from src.config import (
     LOG_FILE,
     RAW_DATA_FILE,
 )
-
+df = pd.read_csv(
+    self.file_path,
+    encoding=CSV_ENCODING,
+    sep=CSV_SEPARATOR
+)
 # ==========================================================
 # Logger Configuration
 # ==========================================================
