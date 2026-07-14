@@ -686,4 +686,127 @@ class FeatureEngineer:
         logger.info(
             "incident_complexity_score created."
         )
+
+    # ======================================================
+    # Execute Complete Feature Engineering Pipeline
+    # ======================================================
+
+    def run(self):
+        """
+        Execute the complete feature engineering pipeline
+        in dependency-safe order.
+
+        Returns
+        -------
+        pandas.DataFrame
+            Feature-engineered dataframe.
+        """
+
+        logger.info("=" * 60)
+        logger.info("Starting Feature Engineering Pipeline")
+        logger.info("=" * 60)
+
+        # Date-derived features
+
+        self.create_date_features()
+
+        self.create_weekend_flag()
+
+        self.create_month_name()
+
+        self.create_incident_age()
+
+        self.create_quarter_label()
+
+        # Financial ratio features
+
+        self.create_ransom_per_record()
+
+        self.create_fine_per_record()
+
+        self.create_total_financial_impact()
+
+        # Operational metrics
+
+        self.create_downtime_per_record()
+
+        self.create_response_efficiency()
+
+        self.create_detection_speed_category()
+
+        # Category features that depend on the above
+
+        self.create_incident_cost_category()
+
+        self.create_high_severity_flag()
+
+        self.create_high_ransom_flag()
+
+        self.create_large_breach_flag()
+
+        self.create_long_downtime_flag()
+
+        # Frequency encodings
+
+        self.create_sector_frequency()
+
+        self.create_region_frequency()
+
+        self.create_attack_frequency()
+
+        self.create_threat_actor_frequency()
+
+        # Composite scores that depend on flags above
+
+        self.create_risk_score()
+
+        self.create_incident_complexity_score()
+
+        logger.info("=" * 60)
+        logger.info("Feature Engineering Pipeline Completed Successfully")
+        logger.info("=" * 60)
+
+        return self.df
+
+
+# ==========================================================
+# Standalone Execution
+# ==========================================================
+
+if __name__ == "__main__":
+
+    import pandas as pd
+
+    from src.config import CLEAN_DATA_FILE
+
+    try:
+
+        logger.info("Loading clean dataset...")
+
+        clean_df = pd.read_csv(
+            CLEAN_DATA_FILE,
+            parse_dates=["incident_date"],
+        )
+
+        logger.info("Running Feature Engineering Pipeline...")
+
+        engineer = FeatureEngineer(clean_df)
+
+        engineered_df = engineer.run()
+
+        print("\n" + "=" * 70)
+        print("FEATURE ENGINEERING PIPELINE COMPLETED")
+        print("=" * 70)
+        print(f"Rows    : {len(engineered_df)}")
+        print(f"Columns : {len(engineered_df.columns)}")
+        print("=" * 70)
+
+    except Exception as error:
+
+        logger.exception(
+            "Feature Engineering Pipeline Failed."
+        )
+
+        print("\nPipeline Error")
+        print(error)
         
