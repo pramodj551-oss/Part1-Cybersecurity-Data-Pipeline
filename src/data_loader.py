@@ -1,158 +1,237 @@
 """
-Loads and validates cybersecurity dataset.
+Data Loader Module
 
-Author:
-Pramod Prakash Jadhav
+Loads and validates the raw cybersecurity incident dataset.
+
+Author: Pramod Prakash Jadhav
 """
 
+from __future__ import annotations
+
 import logging
-from pathlib import Path
 
 import pandas as pd
 
-from config import (
-    RAW_DATA_FILE,
+from src.config import (
     EXPECTED_COLUMNS,
     LOG_FILE,
+    RAW_DATA_FILE,
 )
 
-# ---------------------------------------------------
+# ==========================================================
 # Logger Configuration
-# ---------------------------------------------------
-
-logging.basicConfig(
-    filename=LOG_FILE,
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(message)s",
-)
+# ==========================================================
 
 logger = logging.getLogger(__name__)
 
+if not logger.handlers:
 
-# ---------------------------------------------------
-# Data Loader Class
-# ---------------------------------------------------
+    logging.basicConfig(
+        filename=LOG_FILE,
+        level=logging.INFO,
+        format="%(asctime)s | %(levelname)s | %(message)s",
+    )
+
 
 class DataLoader:
-
     """
-    Load raw CSV dataset.
-
-    Performs:
-        - File validation
-        - Empty file validation
-        - Column validation
+    Loads and validates the cybersecurity incident dataset.
     """
 
-    def __init__(self, file_path: Path = RAW_DATA_FILE):
+    def __init__(self, file_path=RAW_DATA_FILE):
 
         self.file_path = file_path
+
+    # ======================================================
+    # File Validation
+    # ======================================================
 
     def validate_file(self):
 
         """
-        Validate input file exists.
+        Validate dataset file existence.
         """
 
         if not self.file_path.exists():
-            logger.error("Dataset not found.")
+
+            logger.error("Dataset file not found.")
 
             raise FileNotFoundError(
                 f"Dataset not found:\n{self.file_path}"
             )
 
+        logger.info("Dataset file found.")
+
+    # ======================================================
+    # Load CSV
+    # ======================================================
+
     def load_csv(self):
 
         """
-        Load CSV file.
-
-        Returns
-        -------
-        pandas.DataFrame
+        Load CSV into DataFrame.
         """
 
         self.validate_file()
 
-        logger.info("Loading dataset...")
+        try:
 
-        df = pd.read_csv(self.file_path)
+            df = pd.read_csv(self.file_path)
 
-        logger.info("Dataset loaded successfully.")
+            logger.info(
+                "Dataset loaded successfully."
+            )
 
-        return df
+            return df
 
-    def validate_columns(self, df):
+        except Exception as error:
+
+            logger.exception(
+                "Unable to load dataset."
+            )
+
+            raise error
+
+    # ======================================================
+    # Empty Dataset Validation
+    # ======================================================
+
+    @staticmethod
+    def validate_empty(df):
 
         """
-        Check whether expected columns exist.
+        Ensure dataset is not empty.
         """
 
-        missing = list(
-            set(EXPECTED_COLUMNS) -
-            set(df.columns)
+        if df.empty:
+
+            raise ValueError(
+                "Dataset contains no records."
+            )
+
+    # ======================================================
+    # Schema Validation
+    # ======================================================
+
+    @staticmethod
+    def validate_schema(df):
+
+        """
+        Validate expected columns.
+        """
+
+        missing = sorted(
+            list(
+                set(EXPECTED_COLUMNS)
+                - set(df.columns)
+            )
         )
 
         if missing:
 
-            logger.error(
-                f"Missing columns: {missing}"
-            )
-
             raise ValueError(
-                f"Dataset missing columns:\n{missing}"
+                f"Missing Columns:\n{missing}"
             )
 
-        logger.info("Column validation passed.")
+    # ======================================================
+    # Duplicate Incident ID Validation
+    # ======================================================
 
-    def summary(self, df):
+    @staticmethod
+    def validate_incident_ids(df):
+
+        """
+        Check duplicate incident IDs.
+        """
+
+        duplicates = (
+            df["incident_id"]
+            .duplicated()
+            .sum()
+        )
+
+        if duplicates > 0:
+
+            logger.warning(
+                "%d duplicate incident IDs found.",
+                duplicates,
+            )
+
+    # ======================================================
+    # Dataset Summary
+    # ======================================================
+
+    @staticmethod
+    def dataset_summary(df):
 
         """
         Print dataset summary.
         """
 
-        logger.info("Generating dataset summary.")
+        print("\n" + "=" * 60)
+        print("CYBERSECURITY INCIDENT DATASET")
+        print("=" * 60)
 
-        print("=" * 50)
+        print(f"Rows    : {df.shape[0]}")
+        print(f"Columns : {df.shape[1]}")
 
-        print("DATASET SUMMARY")
+        print("\nColumn Names")
 
-        print("=" * 50)
+        for column in df.columns:
 
-        print(f"Rows      : {len(df)}")
+            print(f"• {column}")
 
-        print(f"Columns   : {len(df.columns)}")
+        print("\nData Types")
 
-        print()
+        print(df.dtypes)
 
-        print(df.info())
+        print("\nMissing Values")
 
-        print()
+        print(df.isnull().sum())
 
-        print(df.head())
+        print("=" * 60)
+
+    # ======================================================
+    # Run Complete Loader
+    # ======================================================
 
     def run(self):
 
         """
-        Complete loading pipeline.
+        Execute loading pipeline.
         """
+
+        logger.info("=" * 60)
+        logger.info("Starting Data Loader")
+        logger.info("=" * 60)
 
         df = self.load_csv()
 
-        self.validate_columns(df)
+        self.validate_empty(df)
 
-        self.summary(df)
+        self.validate_schema(df)
 
-        logger.info("Data Loader completed successfully.")
+        self.validate_incident_ids(df)
+
+        self.dataset_summary(df)
+
+        logger.info(
+            "Data Loader completed successfully."
+        )
 
         return df
 
 
-# ---------------------------------------------------
-# Main
-# ---------------------------------------------------
+# ==========================================================
+# Standalone Execution
+# ==========================================================
 
 if __name__ == "__main__":
 
     loader = DataLoader()
 
     dataframe = loader.run()
+
+    print("\nFirst Five Records\n")
+
+    print(dataframe.head())
