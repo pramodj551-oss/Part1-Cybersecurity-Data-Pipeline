@@ -91,7 +91,7 @@ Typical attributes include:
 The dataset is placed inside the repository at:
 
 ```
-data/raw/cybersecurity_incidents.csv
+data/raw/cybersecurity_incidents_reports.csv
 ```
 
 The pipeline automatically loads this dataset, validates its schema, performs cleaning and feature engineering, and stores the processed output for further analysis.
@@ -151,7 +151,7 @@ AI-Powered-Cybersecurity-Incident-Analytics/
 │
 ├── data/
 │   ├── raw/
-│   │   └── cybersecurity_incidents.csv
+│   │   └── cybersecurity_incidents_reports.csv
 │   │
 │   └── processed/
 │       ├── clean_incidents.csv
@@ -697,7 +697,7 @@ AI/ML Developer | Cybersecurity Enthusiast
 **Connect**
 
 - GitHub: [https://github.com/pramodj551-oss](https://github.com/pramodj551-oss)
-- LinkedIn: (Add your LinkedIn profile URL here)
+- LinkedIn: [https://www.linkedin.com/in/pramod-prakash-jadhav-42ba228](https://www.linkedin.com/in/pramod-prakash-jadhav-42ba2281)
 
 ---
 
