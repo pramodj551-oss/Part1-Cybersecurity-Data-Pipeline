@@ -226,7 +226,8 @@ class FeatureEngineer:
         logger.info(
             "Quarter labels created."
         )
-            # ======================================================
+
+    # ======================================================
     # Ransom Per Record
     # ======================================================
 
@@ -441,7 +442,8 @@ class FeatureEngineer:
         logger.info(
             "Incident cost category created."
         )
-            # ======================================================
+
+    # ======================================================
     # High Severity Flag
     # ======================================================
 
@@ -650,8 +652,6 @@ class FeatureEngineer:
     # Incident Complexity Score
     # ======================================================
 
-    np.log(value)
-    
     def create_incident_complexity_score(self):
         """
         Estimate operational complexity of incident.
@@ -670,7 +670,7 @@ class FeatureEngineer:
             (
                 self.df["records_affected"] + 1
             ).apply(
-                lambda value: pd.np.log(value)
+                lambda value: np.log(value)
             )
 
             +
@@ -685,5 +685,5 @@ class FeatureEngineer:
 
         logger.info(
             "incident_complexity_score created."
-    )
+        )
         
