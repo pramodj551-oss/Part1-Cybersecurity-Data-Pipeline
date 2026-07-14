@@ -13,15 +13,13 @@ import logging
 import pandas as pd
 
 from src.config import (
+    CSV_ENCODING,
+    CSV_SEPARATOR,
     EXPECTED_COLUMNS,
     LOG_FILE,
     RAW_DATA_FILE,
 )
-df = pd.read_csv(
-    self.file_path,
-    encoding=CSV_ENCODING,
-    sep=CSV_SEPARATOR
-)
+
 # ==========================================================
 # Logger Configuration
 # ==========================================================
@@ -80,7 +78,11 @@ class DataLoader:
 
         try:
 
-            df = pd.read_csv(self.file_path)
+            df = pd.read_csv(
+                self.file_path,
+                encoding=CSV_ENCODING,
+                sep=CSV_SEPARATOR,
+            )
 
             logger.info(
                 "Dataset loaded successfully."
