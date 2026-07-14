@@ -18,6 +18,7 @@ import pandas as pd
 from src.config import (
     ENGINEERED_DATA_FILE,
     LOG_FILE,
+    SUMMARY_REPORT_FILE,
 )
 from src.data_loader import DataLoader
 from src.data_cleaning import DataCleaner
@@ -142,7 +143,8 @@ class AnalyticsPipeline:
         )
 
         return self.clean_df
-          # ======================================================
+
+    # ======================================================
     # Feature Engineering
     # ======================================================
 
@@ -293,8 +295,9 @@ class AnalyticsPipeline:
 
         logger.info(
             "Pipeline validation successful."
-      )
-          # ======================================================
+        )
+
+    # ======================================================
     # Generate Pipeline Summary
     # ======================================================
 
@@ -487,8 +490,9 @@ class AnalyticsPipeline:
 
         logger.info(
             "Pipeline health check completed."
-      )
-          # ======================================================
+        )
+
+    # ======================================================
     # Execute Complete Analytics Pipeline
     # ======================================================
 
@@ -547,7 +551,9 @@ class AnalyticsPipeline:
             )
 
             raise error
-          # ==========================================================
+
+
+# ==========================================================
 # Standalone Execution
 # ==========================================================
 
@@ -586,4 +592,4 @@ if __name__ == "__main__":
 
         print("\nPipeline Failed")
         print(error)
-      
+        
