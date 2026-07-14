@@ -66,7 +66,7 @@ for directory in [
 RAW_DATA_FILE = RAW_DATA_DIR / "cybersecurity_incident_reports.csv"
 
 CLEAN_DATA_FILE = (
-    PROCESSED_DATA_DIR / "clean_incidents.csv"
+    PROCESSED_DATA_DIR / "clean_incidents_reports.csv"
 )
 
 ENGINEERED_DATA_FILE = (
