@@ -184,3 +184,8 @@ DATABASE_TABLE = "cybersecurity_incidents"
 # ==========================================================
 
 RANDOM_SEED = 42
+PROJECT_NAME = "Cybersecurity Incident Analytics"
+
+DATABASE_TABLE = "cybersecurity_incidents"
+
+PIPELINE_VERSION = "2.0.0"
