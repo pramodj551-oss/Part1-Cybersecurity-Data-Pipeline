@@ -1,12 +1,10 @@
-
 """
 Data Cleaning Module
 
-Performs production-grade cleaning and validation
-for the Cybersecurity Incident Reports dataset.
+Production-grade cleaning and validation for the Cybersecurity Incident
+Reports dataset.
 
-Author:
-Pramod Prakash Jadhav
+Author: Pramod Prakash Jadhav
 """
 
 from __future__ import annotations
@@ -34,10 +32,6 @@ from src.config import (
 )
 
 
-# ==========================================================
-# Logger Configuration
-# ==========================================================
-
 logger = logging.getLogger(__name__)
 
 if not logger.handlers:
@@ -49,28 +43,10 @@ if not logger.handlers:
 
 
 class DataCleaner:
-    """
-    Production-grade data cleaning and validation pipeline.
-
-    Responsibilities
-    ----------------
-    - Required-column validation
-    - Missing value handling
-    - Duplicate removal
-    - Datatype conversion
-    - Strict boolean normalization
-    - Date validation
-    - Category standardization
-    - Numeric validation
-    - Range validation
-    - Outlier treatment
-    - Final dataset validation
-    """
+    """Production-grade data cleaning and validation pipeline."""
 
     def __init__(self, dataframe: pd.DataFrame):
-
         self.df = dataframe.copy()
-
         self.report: dict[str, Any] = {
             "initial_rows": len(self.df),
             "final_rows": 0,
@@ -78,126 +54,50 @@ class DataCleaner:
             "missing_values_filled": 0,
             "outliers_capped": 0,
         }
-
-        logger.info(
-            "DataCleaner initialized with %d rows.",
-            len(self.df),
-        )
-
-    # ======================================================
-    # Schema Validation
-    # ======================================================
+        logger.info("DataCleaner initialized with %d rows.", len(self.df))
 
     def validate_required_columns(self) -> None:
-        """
-        Validate that all expected dataset columns exist.
-        """
-
-        logger.info("Validating required columns...")
-
+        """Validate that all expected dataset columns exist."""
         missing_columns = [
-            column
-            for column in EXPECTED_COLUMNS
-            if column not in self.df.columns
+            column for column in EXPECTED_COLUMNS if column not in self.df.columns
         ]
-
         if missing_columns:
-            raise ValueError(
-                f"Missing required columns: {missing_columns}"
-            )
-
-        logger.info(
-            "Required-column validation completed."
-        )
-
-    # ======================================================
-    # Helper Methods
-    # ======================================================
+            raise ValueError(f"Missing required columns: {missing_columns}")
+        logger.info("Required-column validation completed.")
 
     @staticmethod
     def normalize_text(value: Any) -> str:
-        """
-        Normalize text values.
-
-        Example:
-        ' finance ' -> 'Finance'
-        """
-
+        """Normalize categorical text values."""
         if pd.isna(value):
             return DEFAULT_CATEGORICAL_VALUE
-
-        return (
-            str(value)
-            .strip()
-            .title()
-        )
+        return str(value).strip().title()
 
     @staticmethod
     def convert_boolean(value: Any) -> bool:
-        """
-        Convert supported boolean representations.
-
-        Accepted values:
-        True / False
-        true / false
-        yes / no
-        y / n
-        t / f
-        1 / 0
-
-        Invalid values raise ValueError instead of
-        silently converting to False.
-        """
-
+        """Convert supported boolean representations; reject invalid values."""
         if pd.isna(value):
             return bool(DEFAULT_BOOLEAN_VALUE)
-
         if isinstance(value, bool):
             return value
-
         if isinstance(value, (int, float)) and value in (0, 1):
             return bool(value)
 
-        normalized = (
-            str(value)
-            .strip()
-            .lower()
-        )
-
-        if normalized in {
-            "true",
-            "t",
-            "yes",
-            "y",
-            "1",
-        }:
+        normalized = str(value).strip().lower()
+        if normalized in {"true", "t", "yes", "y", "1"}:
             return True
-
-        if normalized in {
-            "false",
-            "f",
-            "no",
-            "n",
-            "0",
-        }:
+        if normalized in {"false", "f", "no", "n", "0"}:
             return False
 
         raise ValueError(
             f"Invalid boolean value: {value!r}. "
-            "Expected true/false, yes/no, or 1/0."
+            "Expected true/false, yes/no, y/n, t/f, or 1/0."
         )
 
     @staticmethod
-    def cap_outliers(
-        series: pd.Series,
-    ) -> tuple[pd.Series, int]:
-        """
-        Cap statistical outliers using IQR.
-        """
-
+    def cap_outliers(series: pd.Series) -> tuple[pd.Series, int]:
+        """Cap statistical outliers using the IQR method."""
         q1 = series.quantile(0.25)
         q3 = series.quantile(0.75)
-
         iqr = q3 - q1
 
         if pd.isna(iqr) or iqr == 0:
@@ -205,747 +105,251 @@ class DataCleaner:
 
         lower = q1 - 1.5 * iqr
         upper = q3 + 1.5 * iqr
-
-        capped = series.clip(
-            lower=lower,
-            upper=upper,
-        )
-
-        count = int(
-            (series != capped).sum()
-        )
-
+        capped = series.clip(lower=lower, upper=upper)
+        count = int((series != capped).sum())
         return capped, count
 
-    # ======================================================
-    # Dataset Statistics
-    # ======================================================
-
     def dataset_statistics(self) -> None:
-        """
-        Print basic dataset statistics.
-        """
-
+        """Print basic dataset statistics."""
         print("\n" + "=" * 60)
         print("DATA CLEANING SUMMARY")
         print("=" * 60)
-
-        print(
-            f"Rows    : {len(self.df)}"
-        )
-
-        print(
-            f"Columns : {len(self.df.columns)}"
-        )
-
+        print(f"Rows    : {len(self.df)}")
+        print(f"Columns : {len(self.df.columns)}")
         print("\nMissing Values\n")
-
-        print(
-            self.df.isna().sum()
-        )
-
+        print(self.df.isna().sum())
         print("=" * 60)
 
-    # ======================================================
-    # Save Quality Report
-    # ======================================================
-
     def save_quality_report(self) -> None:
-        """
-        Save cleaning quality report as JSON.
-        """
-
-        self.report["final_rows"] = len(
-            self.df
-        )
-
-        QUALITY_REPORT_FILE.parent.mkdir(
-            parents=True,
-            exist_ok=True,
-        )
-
-        with open(
-            QUALITY_REPORT_FILE,
-            "w",
-            encoding="utf-8",
-        ) as file:
-
-            json.dump(
-                self.report,
-                file,
-                indent=4,
-            )
-
-        logger.info(
-            "Cleaning report saved to %s.",
-            QUALITY_REPORT_FILE,
-        )
-
-    # ======================================================
-    # Remove Duplicate Records
-    # ======================================================
+        """Save cleaning quality report as JSON."""
+        self.report["final_rows"] = len(self.df)
+        QUALITY_REPORT_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with open(QUALITY_REPORT_FILE, "w", encoding="utf-8") as file:
+            json.dump(self.report, file, indent=4)
+        logger.info("Cleaning report saved to %s.", QUALITY_REPORT_FILE)
 
     def remove_duplicates(self) -> None:
-        """
-        Remove duplicate records based on incident_id.
-        """
-
-        logger.info(
-            "Removing duplicate records..."
-        )
-
+        """Remove duplicate records based on incident_id."""
         if "incident_id" not in self.df.columns:
-            raise ValueError(
-                "Required column 'incident_id' is missing."
-            )
+            raise ValueError("Required column 'incident_id' is missing.")
 
         before = len(self.df)
-
         self.df = self.df.drop_duplicates(
-            subset=["incident_id"],
-            keep="first",
+            subset=["incident_id"], keep="first"
         ).copy()
-
         removed = before - len(self.df)
-
-        self.report[
-            "duplicates_removed"
-        ] = removed
-
-        logger.info(
-            "%d duplicate records removed.",
-            removed,
-        )
-
-    # ======================================================
-    # Handle Missing Values
-    # ======================================================
+        self.report["duplicates_removed"] = removed
+        logger.info("%d duplicate records removed.", removed)
 
     def handle_missing_values(self) -> None:
-        """
-        Fill missing values according to column type.
-        """
-
-        logger.info(
-            "Handling missing values..."
-        )
-
-        missing_before = int(
-            self.df.isna()
-            .sum()
-            .sum()
-        )
-
-        # --------------------------------------------------
-        # Categorical Columns
-        # --------------------------------------------------
+        """Fill missing values according to configured column types."""
+        missing_before = int(self.df.isna().sum().sum())
 
         for column in CATEGORICAL_COLUMNS:
-
             if column in self.df.columns:
-
                 self.df[column] = (
                     self.df[column]
-                    .fillna(
-                        DEFAULT_CATEGORICAL_VALUE
-                    )
-                    .apply(
-                        self.normalize_text
-                    )
+                    .fillna(DEFAULT_CATEGORICAL_VALUE)
+                    .apply(self.normalize_text)
                 )
-
-        # --------------------------------------------------
-        # Numeric Columns
-        # --------------------------------------------------
 
         for column in NUMERIC_COLUMNS:
-
             if column not in self.df.columns:
                 continue
-
-            numeric = pd.to_numeric(
-                self.df[column],
-                errors="coerce",
-            )
-
-            invalid_mask = (
-                self.df[column].notna()
-                & numeric.isna()
-            )
-
+            numeric = pd.to_numeric(self.df[column], errors="coerce")
+            invalid_mask = self.df[column].notna() & numeric.isna()
             if invalid_mask.any():
-
-                count = int(
-                    invalid_mask.sum()
-                )
-
+                count = int(invalid_mask.sum())
                 raise ValueError(
-                    f"Column '{column}' contains "
-                    f"{count} invalid numeric value(s)."
+                    f"Column '{column}' contains {count} invalid numeric value(s)."
                 )
-
             median_value = numeric.median()
-
             if pd.isna(median_value):
-                median_value = (
-                    DEFAULT_NUMERIC_VALUE
-                )
-
-            self.df[column] = (
-                numeric.fillna(
-                    median_value
-                )
-            )
-
-        # --------------------------------------------------
-        # Boolean Columns
-        # --------------------------------------------------
+                median_value = DEFAULT_NUMERIC_VALUE
+            self.df[column] = numeric.fillna(median_value)
 
         for column in BOOLEAN_COLUMNS:
-
             if column in self.df.columns:
-
                 self.df[column] = (
-                    self.df[column]
-                    .apply(
-                        self.convert_boolean
-                    )
-                    .astype(bool)
+                    self.df[column].apply(self.convert_boolean).astype(bool)
                 )
 
-        missing_after = int(
-            self.df.isna()
-            .sum()
-            .sum()
-        )
-
-        self.report[
-            "missing_values_filled"
-        ] = (
-            missing_before
-            - missing_after
-        )
-
-        logger.info(
-            "Missing value handling completed."
-        )
-
-    # ======================================================
-    # Parse Incident Date
-    # ======================================================
+        missing_after = int(self.df.isna().sum().sum())
+        self.report["missing_values_filled"] = missing_before - missing_after
+        logger.info("Missing value handling completed.")
 
     def parse_incident_date(self) -> None:
-        """
-        Convert incident_date to datetime format
-        and reject invalid non-null values.
-        """
-
+        """Convert incident_date to datetime and reject invalid non-null values."""
         if "incident_date" not in self.df.columns:
+            raise ValueError("Required column 'incident_date' is missing.")
 
-            raise ValueError(
-                "Required column 'incident_date' "
-                "is missing."
-            )
-
-        logger.info(
-            "Parsing incident_date..."
-        )
-
-        original_dates = (
-            self.df["incident_date"]
-        )
-
-        parsed_dates = pd.to_datetime(
-            original_dates,
-            errors="coerce",
-        )
-
-        invalid_dates = (
-            original_dates.notna()
-            & parsed_dates.isna()
-        )
+        original_dates = self.df["incident_date"]
+        parsed_dates = pd.to_datetime(original_dates, errors="coerce")
+        invalid_dates = original_dates.notna() & parsed_dates.isna()
 
         if invalid_dates.any():
-
-            count = int(
-                invalid_dates.sum()
-            )
-
-            examples = (
-                original_dates[
-                    invalid_dates
-                ]
-                .head(5)
-                .tolist()
-            )
-
+            count = int(invalid_dates.sum())
+            examples = original_dates[invalid_dates].head(5).tolist()
             raise ValueError(
-                f"Found {count} invalid "
-                f"incident_date value(s). "
+                f"Found {count} invalid incident_date value(s). "
                 f"Examples: {examples}"
             )
 
-        self.df["incident_date"] = (
-            parsed_dates
-        )
-
-        logger.info(
-            "Datetime conversion completed."
-        )
-
-    # ======================================================
-    # Validate Numeric Columns
-    # ======================================================
+        self.df["incident_date"] = parsed_dates
+        logger.info("Datetime conversion completed.")
 
     def validate_numeric_columns(self) -> None:
-        """
-        Ensure numeric columns contain valid numeric values.
-        """
-
-        logger.info(
-            "Validating numeric columns..."
-        )
-
+        """Ensure numeric columns contain valid numeric values."""
         for column in NUMERIC_COLUMNS:
-
             if column not in self.df.columns:
                 continue
-
-            numeric = pd.to_numeric(
-                self.df[column],
-                errors="coerce",
-            )
-
-            invalid_mask = (
-                self.df[column].notna()
-                & numeric.isna()
-            )
-
+            numeric = pd.to_numeric(self.df[column], errors="coerce")
+            invalid_mask = self.df[column].notna() & numeric.isna()
             if invalid_mask.any():
-
-                count = int(
-                    invalid_mask.sum()
-                )
-
+                count = int(invalid_mask.sum())
                 raise ValueError(
-                    f"Column '{column}' contains "
-                    f"{count} invalid numeric value(s)."
+                    f"Column '{column}' contains {count} invalid numeric value(s)."
                 )
-
-            self.df[column] = (
-                numeric.fillna(
-                    DEFAULT_NUMERIC_VALUE
-                )
-            )
-
-        logger.info(
-            "Numeric validation completed."
-        )
-
-    # ======================================================
-    # Standardize Categorical Columns
-    # ======================================================
+            self.df[column] = numeric.fillna(DEFAULT_NUMERIC_VALUE)
+        logger.info("Numeric validation completed.")
 
     def standardize_categories(self) -> None:
-        """
-        Standardize categorical columns.
-        """
-
-        logger.info(
-            "Standardizing categorical columns..."
-        )
-
+        """Standardize configured categorical columns."""
         for column in CATEGORICAL_COLUMNS:
-
-            if column not in self.df.columns:
-                continue
-
-            self.df[column] = (
-                self.df[column]
-                .apply(
-                    self.normalize_text
-                )
-            )
-
-        logger.info(
-            "Categorical standardization completed."
-        )
-
-    # ======================================================
-    # Normalize Boolean Columns
-    # ======================================================
+            if column in self.df.columns:
+                self.df[column] = self.df[column].apply(self.normalize_text)
+        logger.info("Categorical standardization completed.")
 
     def normalize_boolean_columns(self) -> None:
-        """
-        Normalize all configured boolean columns.
-        """
-
-        logger.info(
-            "Normalizing boolean columns..."
-        )
-
+        """Normalize all configured boolean columns."""
         for column in BOOLEAN_COLUMNS:
-
-            if column not in self.df.columns:
-                continue
-
-            self.df[column] = (
-                self.df[column]
-                .apply(
-                    self.convert_boolean
+            if column in self.df.columns:
+                self.df[column] = (
+                    self.df[column].apply(self.convert_boolean).astype(bool)
                 )
-                .astype(bool)
-            )
-
-        logger.info(
-            "Boolean normalization completed."
-        )
-
-    # ======================================================
-    # Range Validation
-    # ======================================================
+        logger.info("Boolean normalization completed.")
 
     def validate_ranges(self) -> None:
-        """
-        Enforce configured numeric limits.
-        """
-
-        logger.info(
-            "Validating numeric ranges..."
-        )
-
+        """Enforce configured numeric business-rule limits."""
         if "severity_score" in self.df.columns:
-
-            self.df[
-                "severity_score"
-            ] = self.df[
-                "severity_score"
-            ].clip(
-                lower=0,
-                upper=MAX_SEVERITY_SCORE,
+            self.df["severity_score"] = self.df["severity_score"].clip(
+                lower=0, upper=MAX_SEVERITY_SCORE
             )
-
         if "downtime_hours" in self.df.columns:
-
-            self.df[
-                "downtime_hours"
-            ] = self.df[
-                "downtime_hours"
-            ].clip(
-                lower=0,
-                upper=MAX_DOWNTIME_HOURS,
+            self.df["downtime_hours"] = self.df["downtime_hours"].clip(
+                lower=0, upper=MAX_DOWNTIME_HOURS
             )
-
         if "detection_time_hours" in self.df.columns:
-
-            self.df[
-                "detection_time_hours"
-            ] = self.df[
-                "detection_time_hours"
-            ].clip(
-                lower=0,
+            self.df["detection_time_hours"] = self.df["detection_time_hours"].clip(
+                lower=0
             )
-
         if "response_team_size" in self.df.columns:
-
-            self.df[
-                "response_team_size"
-            ] = self.df[
-                "response_team_size"
-            ].clip(
-                lower=1,
-                upper=MAX_RESPONSE_TEAM_SIZE,
+            self.df["response_team_size"] = self.df["response_team_size"].clip(
+                lower=1, upper=MAX_RESPONSE_TEAM_SIZE
             )
-
-        if "records_affected" in self.df.columns:
-
-            self.df[
-                "records_affected"
-            ] = self.df[
-                "records_affected"
-            ].clip(
-                lower=0,
-            )
-
-        if "ransom_demand_usd" in self.df.columns:
-
-            self.df[
-                "ransom_demand_usd"
-            ] = self.df[
-                "ransom_demand_usd"
-            ].clip(
-                lower=0,
-            )
-
-        if "regulatory_fine_usd" in self.df.columns:
-
-            self.df[
-                "regulatory_fine_usd"
-            ] = self.df[
-                "regulatory_fine_usd"
-            ].clip(
-                lower=0,
-            )
-
-        logger.info(
-            "Range validation completed."
-        )
-
-    # ======================================================
-    # Handle Outliers
-    # ======================================================
+        for column in (
+            "records_affected",
+            "ransom_demand_usd",
+            "regulatory_fine_usd",
+        ):
+            if column in self.df.columns:
+                self.df[column] = self.df[column].clip(lower=0)
+        logger.info("Range validation completed.")
 
     def handle_outliers(self) -> None:
-        """
-        Cap statistical outliers using IQR.
-        """
-
-        logger.info(
-            "Handling outliers..."
-        )
-
+        """Cap statistical outliers using IQR."""
         total_outliers = 0
-
         for column in NUMERIC_COLUMNS:
-
             if column not in self.df.columns:
                 continue
-
-            cleaned_series, capped = (
-                self.cap_outliers(
-                    self.df[column]
-                )
-            )
-
-            self.df[column] = (
-                cleaned_series
-            )
-
+            cleaned_series, capped = self.cap_outliers(self.df[column])
+            self.df[column] = cleaned_series
             total_outliers += capped
+        self.report["outliers_capped"] = total_outliers
+        logger.info("%d outlier values capped.", total_outliers)
 
-        self.report[
-            "outliers_capped"
-        ] = total_outliers
+    def final_validation(self) -> None:
+        """Perform strict final validation before saving."""
+        missing_columns = [
+            column for column in EXPECTED_COLUMNS if column not in self.df.columns
+        ]
+        if missing_columns:
+            raise ValueError(
+                f"Missing required columns after cleaning: {missing_columns}"
+            )
 
-        logger.info(
-            "%d outlier values capped.",
-            total_outliers,
-        )
-    # ======================================================
-    # Final Dataset Validation
-    # ======================================================
+        if self.df.empty:
+            raise ValueError("Dataset became empty after cleaning.")
 
-def final_validation(self) -> None:
-    """
-    Perform strict final validation.
-    """
+        if self.df["incident_id"].isna().any():
+            raise ValueError("incident_id contains missing values.")
 
-    logger.info(
-        "Running final validation..."
-    )
+        duplicate_count = int(self.df["incident_id"].duplicated().sum())
+        if duplicate_count > 0:
+            raise ValueError(
+                f"{duplicate_count} duplicate incident_id value(s) remain."
+            )
 
-    # --------------------------------------------------
-    # Validate expected schema
-    # --------------------------------------------------
+        missing_values = int(self.df.isna().sum().sum())
+        if missing_values > 0:
+            raise ValueError(
+                f"{missing_values} missing value(s) remain after cleaning."
+            )
 
-    missing_columns = [
-        column
-        for column in EXPECTED_COLUMNS
-        if column not in self.df.columns
-    ]
+        logger.info("Final validation completed successfully.")
 
-    if missing_columns:
-        raise ValueError(
-            "Missing required columns after cleaning: "
-            f"{missing_columns}"
-        )
+    def save_clean_dataset(self) -> None:
+        """Save cleaned dataset to the configured processed path."""
+        CLEAN_DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
+        self.df.to_csv(CLEAN_DATA_FILE, index=False)
+        logger.info("Clean dataset saved to %s", CLEAN_DATA_FILE)
 
-    # --------------------------------------------------
-    # Dataset must not be empty
-    # --------------------------------------------------
+    def run(self) -> pd.DataFrame:
+        """Execute the complete data cleaning pipeline."""
+        logger.info("=" * 60)
+        logger.info("Starting Data Cleaning Pipeline")
+        logger.info("=" * 60)
 
-    if self.df.empty:
-        raise ValueError(
-            "Dataset became empty after cleaning."
-        )
+        self.validate_required_columns()
+        self.remove_duplicates()
+        self.handle_missing_values()
+        self.parse_incident_date()
+        self.validate_numeric_columns()
+        self.standardize_categories()
+        self.normalize_boolean_columns()
+        self.handle_outliers()
+        self.validate_ranges()
+        self.final_validation()
+        self.dataset_statistics()
+        self.save_quality_report()
+        self.save_clean_dataset()
 
-    # --------------------------------------------------
-    # Validate incident_id
-    # --------------------------------------------------
+        logger.info("Data Cleaning Pipeline Completed Successfully")
+        return self.df
 
-    if self.df["incident_id"].isna().any():
-        raise ValueError(
-            "incident_id contains missing values."
-        )
-
-    duplicate_count = int(
-        self.df["incident_id"]
-        .duplicated()
-        .sum()
-    )
-
-    if duplicate_count > 0:
-        raise ValueError(
-            f"{duplicate_count} duplicate "
-            "incident_id value(s) remain."
-        )
-
-    # --------------------------------------------------
-    # Validate remaining missing values
-    # --------------------------------------------------
-
-    missing_values = int(
-        self.df.isna()
-        .sum()
-        .sum()
-    )
-
-    if missing_values > 0:
-        raise ValueError(
-            f"{missing_values} missing "
-            "value(s) remain after cleaning."
-        )
-
-    logger.info(
-        "Final validation completed successfully."
-    )
-
-
-# ======================================================
-# Save Clean Dataset
-# ======================================================
-
-def save_clean_dataset(self) -> None:
-    """
-    Save cleaned dataset.
-    """
-
-    logger.info(
-        "Saving cleaned dataset..."
-    )
-
-    CLEAN_DATA_FILE.parent.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
-    self.df.to_csv(
-        CLEAN_DATA_FILE,
-        index=False,
-    )
-
-    logger.info(
-        "Clean dataset saved to %s",
-        CLEAN_DATA_FILE,
-    )
-
-
-# ======================================================
-# Execute Complete Cleaning Pipeline
-# ======================================================
-
-def run(self) -> pd.DataFrame:
-    """
-    Execute complete data cleaning pipeline.
-    """
-
-    logger.info("=" * 60)
-    logger.info(
-        "Starting Data Cleaning Pipeline"
-    )
-    logger.info("=" * 60)
-
-    self.validate_required_columns()
-
-    self.remove_duplicates()
-
-    self.handle_missing_values()
-
-    self.parse_incident_date()
-
-    self.validate_numeric_columns()
-
-    self.standardize_categories()
-
-    self.normalize_boolean_columns()
-
-    # Statistical outlier treatment first
-    self.handle_outliers()
-
-    # Business-rule range enforcement after outliers
-    self.validate_ranges()
-
-    self.final_validation()
-
-    self.dataset_statistics()
-
-    self.save_quality_report()
-
-    self.save_clean_dataset()
-
-    logger.info("=" * 60)
-    logger.info(
-        "Data Cleaning Pipeline Completed Successfully"
-    )
-    logger.info("=" * 60)
-
-    return self.df
-    # ==========================================================
-# Standalone Execution
-# ==========================================================
 
 if __name__ == "__main__":
-
     from src.data_loader import DataLoader
 
     try:
-
-        logger.info(
-            "Loading raw dataset..."
-        )
-
+        logger.info("Loading raw dataset...")
         loader = DataLoader()
-
         raw_df = loader.run()
 
-        logger.info(
-            "Running Data Cleaning Pipeline..."
-        )
-
+        logger.info("Running Data Cleaning Pipeline...")
         cleaner = DataCleaner(raw_df)
-
         clean_df = cleaner.run()
 
         print("\n" + "=" * 70)
-        print(
-            "DATA CLEANING PIPELINE COMPLETED"
-        )
+        print("DATA CLEANING PIPELINE COMPLETED")
         print("=" * 70)
-
-        print(
-            f"Rows              : {len(clean_df)}"
-        )
-
-        print(
-            f"Columns           : {len(clean_df.columns)}"
-        )
-
-        print(
-            f"Clean Dataset     : {CLEAN_DATA_FILE}"
-        )
-
-        print(
-            f"Quality Report    : {QUALITY_REPORT_FILE}"
-        )
-
+        print(f"Rows              : {len(clean_df)}")
+        print(f"Columns           : {len(clean_df.columns)}")
+        print(f"Clean Dataset     : {CLEAN_DATA_FILE}")
+        print(f"Quality Report    : {QUALITY_REPORT_FILE}")
         print("=" * 70)
 
     except Exception as error:
-
-        logger.exception(
-            "Data Cleaning Pipeline Failed."
-        )
-
+        logger.exception("Data Cleaning Pipeline Failed.")
         print("\nPipeline Error")
         print(error)
-        
