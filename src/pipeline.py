@@ -72,22 +72,31 @@ class AnalyticsPipeline:
         logger.info("STEP 4 : DATABASE STORAGE")
         if self.engineered_df is None:
             raise ValueError("Engineered dataset is not available.")
+
         manager = self.database_manager
         manager.connect()
         try:
+            # Create/evolve the DB schema from the exact engineered dataframe
+            # before inserting it. This prevents engineered columns from being
+            # silently dropped or causing to_sql schema mismatches.
+            manager.create_table(self.engineered_df)
+            manager.verify_dataframe_schema(self.engineered_df)
             manager.replace_table(self.engineered_df)
             manager.verify_table()
+            manager.verify_dataframe_schema(self.engineered_df)
+
             row_count = manager.get_row_count()
             if row_count != len(self.engineered_df):
                 raise ValueError(
                     f"Database row-count mismatch: expected {len(self.engineered_df)}, got {row_count}."
                 )
+
             logger.info("Database updated successfully: %d rows", row_count)
             return row_count
         finally:
             manager.close()
 
-    def validate_pipeline(self) -> None:
+    def validate_pipeline(self, database_rows: int | None = None) -> None:
         logger.info("Validating pipeline outputs...")
         if self.raw_df is None or self.clean_df is None or self.engineered_df is None:
             raise ValueError("One or more pipeline datasets are missing.")
@@ -96,13 +105,18 @@ class AnalyticsPipeline:
             raise ValueError("Cleaning stage increased row count unexpectedly.")
         if len(self.engineered_df) != len(self.clean_df):
             raise ValueError("Feature engineering changed row count unexpectedly.")
-        if "incident_id" in self.engineered_df.columns:
-            if self.engineered_df["incident_id"].isna().any():
-                raise ValueError("Engineered dataset contains missing incident_id values.")
-            if self.engineered_df["incident_id"].duplicated().any():
-                raise ValueError("Engineered dataset contains duplicate incident_id values.")
+
+        if self.engineered_df["incident_id"].isna().any():
+            raise ValueError("Engineered dataset contains missing incident_id values.")
+        if self.engineered_df["incident_id"].duplicated().any():
+            raise ValueError("Engineered dataset contains duplicate incident_id values.")
         if self.engineered_df.isna().any().any():
             raise ValueError("Engineered dataset contains missing values.")
+
+        if database_rows is not None and database_rows != len(self.engineered_df):
+            raise ValueError(
+                f"Database/output row-count mismatch: expected {len(self.engineered_df)}, got {database_rows}."
+            )
 
         logger.info("Pipeline validation successful.")
 
@@ -164,7 +178,7 @@ class AnalyticsPipeline:
             self.engineer_features()
             self.save_engineered_dataset()
             database_rows = self.store_database()
-            self.validate_pipeline()
+            self.validate_pipeline(database_rows)
             self.health_check()
             self.save_summary(database_rows)
             self.display_statistics()
