@@ -29,5 +29,25 @@ jobs:
       - name: Compile Python sources
         run: python -m compileall -q src run_pipeline.py
 
-      - name: Run tests
+      - name: Run regression and integration tests
         run: python -m pytest -q
+
+      - name: Run end-to-end pipeline
+        run: python run_pipeline.py
+
+      - name: Execute EDA notebook
+        run: >-
+          python -m nbconvert
+          --to notebook
+          --execute EDA.ipynb
+          --output executed_EDA.ipynb
+          --output-dir /tmp
+          --ExecutePreprocessor.timeout=180
+
+      - name: Verify generated artifacts
+        run: |
+          test -f data/processed/clean_incidents_reports.csv
+          test -f data/processed/engineered_incidents.csv
+          test -f outputs/incidents.db
+          test -f outputs/summary_report.csv
+          test -f outputs/cleaning_report.json
