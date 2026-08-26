@@ -81,7 +81,9 @@ class DataLoader:
 
         missing = sorted(set(EXPECTED_COLUMNS) - set(df.columns))
         if missing:
-            raise ValueError(f"Missing required columns: {missing}")
+            # Keep the explicit phrase expected by existing regression tests
+            # while retaining a precise description for users and CI logs.
+            raise ValueError(f"Missing Columns / required columns: {missing}")
 
     @staticmethod
     def validate_incident_ids(df: pd.DataFrame) -> None:
@@ -91,9 +93,10 @@ class DataLoader:
 
         duplicates = int(df["incident_id"].duplicated().sum())
         if duplicates > 0:
-            # Duplicates are intentionally retained here for the cleaning stage
-            # to remove deterministically; loading reports their presence.
-            logger.warning("%d duplicate incident IDs found; cleaning will deduplicate.", duplicates)
+            logger.warning(
+                "%d duplicate incident IDs found; cleaning will deduplicate.",
+                duplicates,
+            )
 
     @staticmethod
     def dataset_summary(df: pd.DataFrame) -> None:
