@@ -731,9 +731,9 @@ class DataCleaner:
             "%d outlier values capped.",
             total_outliers,
         )
-# ======================================================
-# Final Dataset Validation
-# ======================================================
+    # ======================================================
+    # Final Dataset Validation
+    # ======================================================
 
 def final_validation(self) -> None:
     """
