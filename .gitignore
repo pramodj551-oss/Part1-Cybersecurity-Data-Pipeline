@@ -1,62 +1,89 @@
-# Virtual Environment
+# ==========================================================
+# Python / Virtual Environments
+# ==========================================================
 venv/
+.venv/
+env/
+ENV/
 .env/
 
-# Python
+# Python cache / bytecode
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*$py.class
 
-# Notebook Checkpoints
+# ==========================================================
+# Environment / Secrets
+# ==========================================================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ==========================================================
+# Jupyter
+# ==========================================================
 .ipynb_checkpoints/
 
-# VS Code
+# ==========================================================
+# IDE / OS
+# ==========================================================
 .vscode/
-
-# PyCharm
 .idea/
-
-# macOS
 .DS_Store
-
-# Windows
 Thumbs.db
 
-# Logs
+# ==========================================================
+# Runtime Logs
+# ==========================================================
 logs/
 *.log
 
-# Environment Variables
-.env
-
-# SQLite
+# ==========================================================
+# Databases
+# ==========================================================
 *.db
+*.sqlite
 *.sqlite3
 
-# Outputs
-outputs/
+# ==========================================================
+# Generated / Local Outputs
+# ==========================================================
+outputs/*
+!outputs/.gitkeep
 
-# Processed Data
-data/processed/
+# Generated processed datasets
+# Keep raw input data trackable; generated processed data stays local/CI-only.
+data/processed/*
+!data/processed/.gitkeep
 
-# Cache
+# ==========================================================
+# Temporary / Cache
+# ==========================================================
 .cache/
-
-# Temporary Files
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 *.tmp
+*.temp
 
-# Distribution
+# ==========================================================
+# Coverage / Test Reports
+# ==========================================================
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+
+# ==========================================================
+# Packaging
+# ==========================================================
 build/
 dist/
 *.egg-info/
 
-# Coverage
-.coverage
-htmlcov/
-
-# pytest
-.pytest_cache/
-
-# Mypy
-.mypy_cache/
+# ==========================================================
+# Local notebook execution artifacts
+# ==========================================================
+executed_EDA.ipynb
