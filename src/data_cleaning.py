@@ -736,6 +736,16 @@ class DataCleaner:
     # Final Dataset Validation
     # ======================================================
 
+   missing_columns = [
+    column
+    for column in EXPECTED_COLUMNS
+    if column not in self.df.columns
+]
+
+if missing_columns:
+    raise ValueError(
+        f"Missing required columns after cleaning: {missing_columns}"
+    ) 
     def final_validation(self) -> None:
         """
         Perform strict final validation.
@@ -849,9 +859,9 @@ class DataCleaner:
 
         self.normalize_boolean_columns()
 
-        self.validate_ranges()
-
         self.handle_outliers()
+
+        self.validate_ranges()
 
         self.final_validation()
 
