@@ -30,7 +30,7 @@ source .venv/bin/activate
 ### 3. Install dependencies
 ```bash
 python -m pip install --upgrade pip
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 ### 4. Add the raw dataset
@@ -53,7 +53,7 @@ Raw CSV
   ↓
 DataLoader + Schema Validation
   ↓
-Data Cleaning
+Data Cleaning + Quality Validation
   ↓
 Feature Engineering
   ↓
@@ -113,6 +113,8 @@ outputs/cleaning_report.json
 logs/pipeline.log
 ```
 
+Generated/processed outputs and local logs are excluded from Git tracking by `.gitignore`.
+
 ## Main Features
 
 - CSV loading and schema validation
@@ -136,23 +138,37 @@ The pipeline validates file existence, required columns, empty datasets, duplica
 
 ## Analytics
 
-`queries.sql` contains analytical queries for incident volume, sectors, regions, attack types, threat actors, severity, downtime, financial impact, risk and other descriptive metrics.
+`queries.sql` contains analytical queries for incident volume, sectors, regions, attack types, threat actors, severity, downtime, financial impact, risk and other descriptive metrics. The automated integration suite validates the configured SQL query set against the generated SQLite database.
 
-`EDA.ipynb` provides exploratory analysis of the processed data.
+`EDA.ipynb` provides exploratory analysis of the cleaned data, including data-quality summaries, numeric/categorical distributions, incident trends, severity, financial indicators, boolean security indicators and correlations. The notebook is also validated and executed by CI.
 
 ## Testing
 
-Tests are executed through:
+Run the regression and integration suite with:
 
 ```bash
-pytest
+python -m pytest -q
 ```
 
-Coverage can be added with `pytest-cov` once the test suite is enabled.
+The suite covers data loading, cleaning, feature engineering, schema behavior and important edge cases.
 
 ## CI
 
-GitHub Actions runs on pushes and pull requests targeting `main`. The current workflow installs the dependencies and executes `pytest`.
+GitHub Actions runs on pushes and pull requests targeting `main`.
+
+The current CI workflow:
+
+1. Checks out the repository using `actions/checkout@v5`.
+2. Sets up Python 3.11 using `actions/setup-python@v6` with pip caching.
+3. Installs dependencies from `requirements.txt`.
+4. Compiles Python sources.
+5. Runs the pytest regression/integration suite.
+6. Executes the complete end-to-end pipeline.
+7. Validates `EDA.ipynb` as a Jupyter notebook.
+8. Executes the EDA notebook with a bounded timeout.
+9. Verifies the five expected generated artifacts exist.
+
+A CI run must complete successfully before the corresponding change is considered runtime-verified.
 
 ## API Status
 
@@ -161,6 +177,10 @@ This Part 1 repository is currently a batch ETL/data-pipeline application and do
 ## Security
 
 Do not commit secrets or local databases. `.env`, database files, logs and generated outputs are excluded through `.gitignore` where appropriate.
+
+## Reproducibility
+
+Use Python 3.11 and install dependencies from `requirements.txt`. Project paths and validation constants are centralized in `src/config.py`; a central random seed is defined there for deterministic operations.
 
 ## Technology
 
