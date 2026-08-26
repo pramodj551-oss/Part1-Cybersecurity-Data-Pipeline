@@ -66,34 +66,20 @@ class DatabaseManager:
             raise FileNotFoundError(
                 f"Engineered dataset not found: {ENGINEERED_DATA_FILE}"
             )
-
         dataframe = pd.read_csv(ENGINEERED_DATA_FILE, parse_dates=["incident_date"])
-
         if dataframe.empty:
             raise ValueError("Engineered dataset is empty.")
-
-        missing_columns = [
-            column for column in EXPECTED_COLUMNS
-            if column not in dataframe.columns
-        ]
+        missing_columns = [column for column in EXPECTED_COLUMNS if column not in dataframe.columns]
         if missing_columns:
-            raise ValueError(
-                f"Engineered dataset is missing required columns: {missing_columns}"
-            )
-
+            raise ValueError(f"Engineered dataset is missing required columns: {missing_columns}")
         duplicate_ids = int(dataframe["incident_id"].duplicated().sum())
         if duplicate_ids:
-            raise ValueError(
-                f"Engineered dataset contains {duplicate_ids} duplicate incident_id value(s)."
-            )
-
+            raise ValueError(f"Engineered dataset contains {duplicate_ids} duplicate incident_id value(s).")
         if dataframe["incident_id"].isna().any():
             raise ValueError("Engineered dataset contains missing incident_id values.")
-
         if dataframe.isna().any().any():
             missing = dataframe.columns[dataframe.isna().any()].tolist()
             raise ValueError(f"Engineered dataset contains missing values: {missing}")
-
         return dataframe
 
     @staticmethod
@@ -120,7 +106,6 @@ class DatabaseManager:
         columns = dataframe.columns.tolist() if dataframe is not None else EXPECTED_COLUMNS.copy()
         if not columns:
             raise ValueError("Cannot create database schema without columns.")
-
         definitions: list[str] = []
         for column in columns:
             if column == "incident_id":
@@ -137,12 +122,7 @@ class DatabaseManager:
             else:
                 sqlite_type = "TEXT"
             definitions.append(f"{self._quote_identifier(column)} {sqlite_type}")
-
-        query = (
-            f"CREATE TABLE IF NOT EXISTS {self._quote_identifier(DATABASE_TABLE)} ("
-            + ", ".join(definitions) + ");"
-        )
-
+        query = f"CREATE TABLE IF NOT EXISTS {self._quote_identifier(DATABASE_TABLE)} (" + ", ".join(definitions) + ");"
         try:
             self.cursor.execute(query)
             existing = self.get_table_schema()
@@ -152,13 +132,10 @@ class DatabaseManager:
                     if column in existing_columns:
                         continue
                     if column == "incident_id":
-                        raise ValueError(
-                            "Existing database table is missing the incident_id PRIMARY KEY."
-                        )
+                        raise ValueError("Existing database table is missing the incident_id PRIMARY KEY.")
                     sqlite_type = self._sqlite_type(dataframe[column])
                     self.cursor.execute(
-                        f"ALTER TABLE {self._quote_identifier(DATABASE_TABLE)} "
-                        f"ADD COLUMN {self._quote_identifier(column)} {sqlite_type}"
+                        f"ALTER TABLE {self._quote_identifier(DATABASE_TABLE)} ADD COLUMN {self._quote_identifier(column)} {sqlite_type}"
                     )
             self.connection.commit()
         except Exception:
@@ -176,40 +153,35 @@ class DatabaseManager:
             raise ValueError(f"Database is missing engineered columns: {missing}")
 
     def insert_dataframe(self, dataframe: pd.DataFrame, if_exists: str = "append") -> None:
-        """Insert validated dataframe rows."""
+        """Insert validated dataframe rows without committing an outer transaction."""
         self.validate_connection()
         if dataframe.empty:
             raise ValueError("Cannot insert empty dataframe.")
         if if_exists not in {"append", "fail"}:
             raise ValueError("if_exists must be 'append' or 'fail'.")
         self.verify_dataframe_schema(dataframe)
-        try:
-            dataframe.to_sql(
-                DATABASE_TABLE,
-                self.connection,
-                if_exists=if_exists,
-                index=False,
-                method="multi",
-            )
-            self.connection.commit()
-        except Exception:
-            self.connection.rollback()
-            logger.exception("Data insertion failed.")
-            raise
+        dataframe.to_sql(
+            DATABASE_TABLE,
+            self.connection,
+            if_exists=if_exists,
+            index=False,
+            method="multi",
+        )
 
     def replace_table(self, dataframe: pd.DataFrame) -> None:
-        """Replace table contents while preserving the controlled schema."""
+        """Atomically replace table contents while preserving the controlled schema."""
         self.validate_connection()
         if dataframe.empty:
             raise ValueError("Cannot replace table with an empty dataframe.")
         self.create_table(dataframe)
         try:
+            self.connection.execute("BEGIN")
             self.cursor.execute(f"DELETE FROM {self._quote_identifier(DATABASE_TABLE)}")
-            self.connection.commit()
             self.insert_dataframe(dataframe, if_exists="append")
+            self.connection.commit()
         except Exception:
             self.connection.rollback()
-            logger.exception("Table refresh failed.")
+            logger.exception("Atomic table refresh failed; previous committed state was preserved.")
             raise
 
     def verify_table(self) -> None:
@@ -221,18 +193,11 @@ class DatabaseManager:
         ).fetchone()
         if table is None:
             raise ValueError("Database table not found.")
-
         schema = self.get_table_schema()
         actual_columns = set(schema["name"].tolist())
-        missing_columns = [
-            column for column in EXPECTED_COLUMNS
-            if column not in actual_columns
-        ]
+        missing_columns = [column for column in EXPECTED_COLUMNS if column not in actual_columns]
         if missing_columns:
-            raise ValueError(
-                f"Database table is missing required columns: {missing_columns}"
-            )
-
+            raise ValueError(f"Database table is missing required columns: {missing_columns}")
         incident_pk = schema.loc[schema["name"] == "incident_id", "pk"]
         if incident_pk.empty or int(incident_pk.iloc[0]) != 1:
             raise ValueError("incident_id must remain the SQLite PRIMARY KEY.")
@@ -302,9 +267,7 @@ class DatabaseManager:
             self.verify_dataframe_schema(dataframe)
             row_count = self.get_row_count()
             if row_count != len(dataframe):
-                raise ValueError(
-                    f"Database row-count mismatch: expected {len(dataframe)}, got {row_count}."
-                )
+                raise ValueError(f"Database row-count mismatch: expected {len(dataframe)}, got {row_count}.")
             return dataframe
         except Exception:
             logger.exception("Database Pipeline failed.")
