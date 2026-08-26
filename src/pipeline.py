@@ -1,12 +1,4 @@
-"""
-Pipeline Module
-
-Master orchestration pipeline for the
-Cybersecurity Incident Analytics Project.
-
-Author:
-Pramod Prakash Jadhav
-"""
+"""Master orchestration pipeline for Cybersecurity Incident Analytics."""
 
 from __future__ import annotations
 
@@ -15,24 +7,14 @@ import time
 
 import pandas as pd
 
-from src.config import (
-    ENGINEERED_DATA_FILE,
-    LOG_FILE,
-    SUMMARY_REPORT_FILE,
-)
-from src.data_loader import DataLoader
+from src.config import ENGINEERED_DATA_FILE, LOG_FILE, SUMMARY_REPORT_FILE
 from src.data_cleaning import DataCleaner
-from src.feature_engineering import FeatureEngineer
+from src.data_loader import DataLoader
 from src.database import DatabaseManager
-
-# ==========================================================
-# Logger Configuration
-# ==========================================================
+from src.feature_engineering import FeatureEngineer
 
 logger = logging.getLogger(__name__)
-
 if not logger.handlers:
-
     logging.basicConfig(
         filename=LOG_FILE,
         level=logging.INFO,
@@ -40,556 +22,171 @@ if not logger.handlers:
     )
 
 
-# ==========================================================
-# Analytics Pipeline
-# ==========================================================
-
 class AnalyticsPipeline:
-    """
-    End-to-End Analytics Pipeline.
+    """Execute and validate the complete analytics pipeline."""
 
-    Pipeline Flow
-    -------------
-
-    Raw Dataset
-        ↓
-    Data Loader
-        ↓
-    Data Cleaning
-        ↓
-    Feature Engineering
-        ↓
-    SQLite Database
-    """
-
-    def __init__(self):
-
-        self.raw_df = None
-
-        self.clean_df = None
-
-        self.engineered_df = None
-
+    def __init__(self) -> None:
+        self.raw_df: pd.DataFrame | None = None
+        self.clean_df: pd.DataFrame | None = None
+        self.engineered_df: pd.DataFrame | None = None
         self.database_manager = DatabaseManager()
+        self.start_time: float | None = None
 
-        self.start_time = None
-
-        logger.info(
-            "AnalyticsPipeline initialized."
-        )
-
-    # ======================================================
-    # Load Raw Dataset
-    # ======================================================
-
-    def load_data(self):
-        """
-        Load raw dataset using DataLoader.
-        """
-
-        logger.info("=" * 60)
+    def load_data(self) -> pd.DataFrame:
         logger.info("STEP 1 : DATA LOADING")
-        logger.info("=" * 60)
-
-        loader = DataLoader()
-
-        self.raw_df = loader.run()
-
-        logger.info(
-            "Raw dataset loaded successfully."
-        )
-
-        logger.info(
-            "Rows : %d | Columns : %d",
-            len(self.raw_df),
-            len(self.raw_df.columns),
-        )
-
+        self.raw_df = DataLoader().run()
+        if self.raw_df.empty:
+            raise ValueError("Raw dataset is empty.")
+        logger.info("Raw dataset: %d rows, %d columns", len(self.raw_df), len(self.raw_df.columns))
         return self.raw_df
 
-    # ======================================================
-    # Clean Dataset
-    # ======================================================
-
-    def clean_data(self):
-        """
-        Execute data cleaning pipeline.
-        """
-
-        logger.info("=" * 60)
+    def clean_data(self) -> pd.DataFrame:
         logger.info("STEP 2 : DATA CLEANING")
-        logger.info("=" * 60)
-
         if self.raw_df is None:
-
-            raise ValueError(
-                "Raw dataset is not loaded."
-            )
-
-        cleaner = DataCleaner(
-            self.raw_df
-        )
-
-        self.clean_df = cleaner.run()
-
-        logger.info(
-            "Data cleaning completed."
-        )
-
-        logger.info(
-            "Rows : %d | Columns : %d",
-            len(self.clean_df),
-            len(self.clean_df.columns),
-        )
-
+            raise ValueError("Raw dataset is not loaded.")
+        self.clean_df = DataCleaner(self.raw_df).run()
+        if self.clean_df.empty:
+            raise ValueError("Clean dataset is empty.")
         return self.clean_df
 
-    # ======================================================
-    # Feature Engineering
-    # ======================================================
-
-    def engineer_features(self):
-        """
-        Execute feature engineering pipeline.
-        """
-
-        logger.info("=" * 60)
+    def engineer_features(self) -> pd.DataFrame:
         logger.info("STEP 3 : FEATURE ENGINEERING")
-        logger.info("=" * 60)
-
         if self.clean_df is None:
-
-            raise ValueError(
-                "Clean dataset is not available."
-            )
-
-        engineer = FeatureEngineer(
-            self.clean_df
-        )
-
-        self.engineered_df = engineer.run()
-
-        logger.info(
-            "Feature engineering completed."
-        )
-
-        logger.info(
-            "Rows : %d | Columns : %d",
-            len(self.engineered_df),
-            len(self.engineered_df.columns),
-        )
-
+            raise ValueError("Clean dataset is not available.")
+        self.engineered_df = FeatureEngineer(self.clean_df).run()
+        if self.engineered_df.empty:
+            raise ValueError("Engineered dataset is empty.")
         return self.engineered_df
 
-    # ======================================================
-    # Save Engineered Dataset
-    # ======================================================
-
-    def save_engineered_dataset(self):
-        """
-        Save feature engineered dataset.
-        """
-
-        logger.info("=" * 60)
+    def save_engineered_dataset(self) -> None:
         logger.info("Saving engineered dataset...")
-        logger.info("=" * 60)
-
         if self.engineered_df is None:
+            raise ValueError("Engineered dataset is not available.")
+        ENGINEERED_DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
+        self.engineered_df.to_csv(ENGINEERED_DATA_FILE, index=False)
+        if not ENGINEERED_DATA_FILE.exists():
+            raise IOError(f"Failed to create {ENGINEERED_DATA_FILE}")
+        logger.info("Engineered dataset saved to %s", ENGINEERED_DATA_FILE)
 
-            raise ValueError(
-                "Engineered dataset is not available."
-            )
-
-        self.engineered_df.to_csv(
-
-            ENGINEERED_DATA_FILE,
-
-            index=False,
-
-        )
-
-        logger.info(
-            "Engineered dataset saved to %s",
-            ENGINEERED_DATA_FILE,
-        )
-
-    # ======================================================
-    # Store Dataset into SQLite
-    # ======================================================
-
-    def store_database(self):
-        """
-        Store engineered dataset
-        into SQLite database.
-        """
-
-        logger.info("=" * 60)
+    def store_database(self) -> int:
         logger.info("STEP 4 : DATABASE STORAGE")
-        logger.info("=" * 60)
-
         if self.engineered_df is None:
-
-            raise ValueError(
-                "Engineered dataset is not available."
-            )
-
-        manager = DatabaseManager()
-
+            raise ValueError("Engineered dataset is not available.")
+        manager = self.database_manager
         manager.connect()
-
         try:
-
-            manager.replace_table(
-                self.engineered_df
-            )
-
+            manager.replace_table(self.engineered_df)
             manager.verify_table()
-
-            total_rows = (
-                manager.get_row_count()
-            )
-
-            logger.info(
-                "Database updated successfully."
-            )
-
-            logger.info(
-                "Rows stored : %d",
-                total_rows,
-            )
-
+            row_count = manager.get_row_count()
+            if row_count != len(self.engineered_df):
+                raise ValueError(
+                    f"Database row-count mismatch: expected {len(self.engineered_df)}, got {row_count}."
+                )
+            logger.info("Database updated successfully: %d rows", row_count)
+            return row_count
         finally:
-
             manager.close()
 
-    # ======================================================
-    # Pipeline Validation
-    # ======================================================
+    def validate_pipeline(self) -> None:
+        logger.info("Validating pipeline outputs...")
+        if self.raw_df is None or self.clean_df is None or self.engineered_df is None:
+            raise ValueError("One or more pipeline datasets are missing.")
 
-    def validate_pipeline(self):
-        """
-        Validate pipeline outputs.
-        """
+        if len(self.clean_df) > len(self.raw_df):
+            raise ValueError("Cleaning stage increased row count unexpectedly.")
+        if len(self.engineered_df) != len(self.clean_df):
+            raise ValueError("Feature engineering changed row count unexpectedly.")
+        if "incident_id" in self.engineered_df.columns:
+            if self.engineered_df["incident_id"].isna().any():
+                raise ValueError("Engineered dataset contains missing incident_id values.")
+            if self.engineered_df["incident_id"].duplicated().any():
+                raise ValueError("Engineered dataset contains duplicate incident_id values.")
+        if self.engineered_df.isna().any().any():
+            raise ValueError("Engineered dataset contains missing values.")
 
-        logger.info(
-            "Validating pipeline outputs..."
-        )
+        logger.info("Pipeline validation successful.")
 
-        if self.raw_df is None:
-
-            raise ValueError(
-                "Raw dataset missing."
-            )
-
-        if self.clean_df is None:
-
-            raise ValueError(
-                "Clean dataset missing."
-            )
-
-        if self.engineered_df is None:
-
-            raise ValueError(
-                "Engineered dataset missing."
-            )
-
-        logger.info(
-            "Pipeline validation successful."
-        )
-
-    # ======================================================
-    # Generate Pipeline Summary
-    # ======================================================
-
-    def generate_summary(self):
-        """
-        Generate pipeline execution summary.
-        """
-
-        logger.info("=" * 60)
-        logger.info("Generating Pipeline Summary")
-        logger.info("=" * 60)
-
-        summary = {
-
+    def generate_summary(self, database_rows: int | None = None) -> dict[str, object]:
+        if self.raw_df is None or self.clean_df is None or self.engineered_df is None:
+            raise ValueError("Pipeline outputs are not available.")
+        return {
+            "status": "SUCCESS",
             "raw_records": len(self.raw_df),
-
             "clean_records": len(self.clean_df),
-
             "engineered_records": len(self.engineered_df),
-
-            "original_features": len(
-                self.raw_df.columns
-            ),
-
-            "engineered_features": len(
-                self.engineered_df.columns
-            ),
-
-            "new_features_created": (
-
-                len(self.engineered_df.columns)
-
-                -
-
-                len(self.raw_df.columns)
-
-            )
-
+            "database_records": database_rows,
+            "original_features": len(self.raw_df.columns),
+            "engineered_features": len(self.engineered_df.columns),
+            "new_features_created": max(0, len(self.engineered_df.columns) - len(self.raw_df.columns)),
         }
 
+    def save_summary(self, database_rows: int | None = None) -> dict[str, object]:
+        """Save the configured summary report as CSV."""
+        summary = self.generate_summary(database_rows)
+        SUMMARY_REPORT_FILE.parent.mkdir(parents=True, exist_ok=True)
+        pd.DataFrame([summary]).to_csv(SUMMARY_REPORT_FILE, index=False)
+        logger.info("Summary report saved to %s", SUMMARY_REPORT_FILE)
         return summary
 
-    # ======================================================
-    # Save Summary Report
-    # ======================================================
+    def calculate_runtime(self) -> float:
+        if self.start_time is None:
+            raise RuntimeError("Pipeline timer was not started.")
+        return time.perf_counter() - self.start_time
 
-    def save_summary(self):
-        """
-        Save pipeline summary as JSON.
-        """
-
-        import json
-
-        summary = self.generate_summary()
-
-        with open(
-
-            SUMMARY_REPORT_FILE,
-
-            "w",
-
-            encoding="utf-8",
-
-        ) as file:
-
-            json.dump(
-
-                summary,
-
-                file,
-
-                indent=4,
-
-            )
-
-        logger.info(
-            "Summary report saved."
-        )
-
-    # ======================================================
-    # Measure Pipeline Runtime
-    # ======================================================
-
-    def calculate_runtime(self):
-        """
-        Calculate total execution time.
-        """
-
-        runtime = (
-
-            time.perf_counter()
-
-            -
-
-            self.start_time
-
-        )
-
-        logger.info(
-
-            "Pipeline runtime : %.2f seconds",
-
-            runtime,
-
-        )
-
-        return runtime
-
-    # ======================================================
-    # Display Statistics
-    # ======================================================
-
-    def display_statistics(self):
-        """
-        Print pipeline statistics.
-        """
-
-        runtime = self.calculate_runtime()
-
-        print("\n")
-
-        print("=" * 70)
-
+    def display_statistics(self) -> None:
+        if self.raw_df is None or self.clean_df is None or self.engineered_df is None:
+            return
+        print("\n" + "=" * 70)
         print("PIPELINE SUMMARY")
-
+        print("=" * 70)
+        print(f"Raw Records             : {len(self.raw_df)}")
+        print(f"Clean Records           : {len(self.clean_df)}")
+        print(f"Engineered Records      : {len(self.engineered_df)}")
+        print(f"Original Features       : {len(self.raw_df.columns)}")
+        print(f"Engineered Features     : {len(self.engineered_df.columns)}")
+        print(f"Execution Time (sec)    : {self.calculate_runtime():.2f}")
         print("=" * 70)
 
-        print(
+    def health_check(self) -> None:
+        """Fail fast on invalid final output instead of only warning."""
+        if self.engineered_df is None or self.engineered_df.empty:
+            raise ValueError("Engineered dataset is empty.")
+        if self.engineered_df.isna().any().any():
+            raise ValueError("Engineered dataset contains missing values.")
+        logger.info("Pipeline health check passed.")
 
-            f"Raw Records             : {len(self.raw_df)}"
-
-        )
-
-        print(
-
-            f"Clean Records           : {len(self.clean_df)}"
-
-        )
-
-        print(
-
-            f"Engineered Records      : {len(self.engineered_df)}"
-
-        )
-
-        print(
-
-            f"Original Features       : {len(self.raw_df.columns)}"
-
-        )
-
-        print(
-
-            f"Engineered Features     : {len(self.engineered_df.columns)}"
-
-        )
-
-        print(
-
-            f"Execution Time (sec)    : {runtime:.2f}"
-
-        )
-
-        print("=" * 70)
-
-    # ======================================================
-    # Pipeline Health Check
-    # ======================================================
-
-    def health_check(self):
-        """
-        Perform basic health checks.
-        """
-
-        logger.info(
-            "Performing pipeline health check..."
-        )
-
-        if self.engineered_df.empty:
-
-            raise ValueError(
-                "Engineered dataset is empty."
-            )
-
-        if self.engineered_df.isna().sum().sum() > 0:
-
-            logger.warning(
-                "Engineered dataset contains missing values."
-            )
-
-        logger.info(
-            "Pipeline health check completed."
-        )
-
-    # ======================================================
-    # Execute Complete Analytics Pipeline
-    # ======================================================
-
-    def run(self):
-        """
-        Execute the complete analytics pipeline.
-
-        Pipeline Flow
-        -------------
-        1. Load Data
-        2. Clean Data
-        3. Feature Engineering
-        4. Save Engineered Dataset
-        5. Store in SQLite
-        6. Validate Outputs
-        7. Health Check
-        8. Save Summary
-        """
-
+    def run(self) -> pd.DataFrame:
         self.start_time = time.perf_counter()
-
-        logger.info("=" * 70)
         logger.info("STARTING ANALYTICS PIPELINE")
-        logger.info("=" * 70)
-
         try:
-
             self.load_data()
-
             self.clean_data()
-
             self.engineer_features()
-
             self.save_engineered_dataset()
-
-            self.store_database()
-
+            database_rows = self.store_database()
             self.validate_pipeline()
-
             self.health_check()
-
-            self.save_summary()
-
+            self.save_summary(database_rows)
             self.display_statistics()
-
-            logger.info("=" * 70)
             logger.info("PIPELINE EXECUTED SUCCESSFULLY")
-            logger.info("=" * 70)
-
             return self.engineered_df
+        except Exception:
+            logger.exception("Pipeline execution failed.")
+            raise
 
-        except Exception as error:
-
-            logger.exception(
-                "Pipeline execution failed."
-            )
-
-            raise error
-
-
-# ==========================================================
-# Standalone Execution
-# ==========================================================
 
 if __name__ == "__main__":
-
     try:
-
-        pipeline = AnalyticsPipeline()
-
-        dataframe = pipeline.run()
-
-        print("\n")
-        print("=" * 70)
+        dataframe = AnalyticsPipeline().run()
+        print("\n" + "=" * 70)
         print("CYBERSECURITY ANALYTICS PIPELINE COMPLETED")
         print("=" * 70)
-
-        print(
-            f"Final Records  : {len(dataframe)}"
-        )
-
-        print(
-            f"Final Features : {len(dataframe.columns)}"
-        )
-
-        print(
-            "Status         : SUCCESS"
-        )
-
+        print(f"Final Records  : {len(dataframe)}")
+        print(f"Final Features : {len(dataframe.columns)}")
+        print("Status         : SUCCESS")
         print("=" * 70)
-
     except Exception as error:
-
-        logger.exception(
-            "Fatal pipeline error."
-        )
-
+        logger.exception("Fatal pipeline error.")
         print("\nPipeline Failed")
         print(error)
-        
+        raise
