@@ -731,228 +731,162 @@ class DataCleaner:
             "%d outlier values capped.",
             total_outliers,
         )
+        # ======================================================
+# Final Dataset Validation
+# ======================================================
 
-    # ======================================================
-    # Final Dataset Validation
-    # ======================================================
+def final_validation(self) -> None:
+    """
+    Perform strict final validation.
+    """
 
-   missing_columns = [
-    column
-    for column in EXPECTED_COLUMNS
-    if column not in self.df.columns
-]
+    logger.info(
+        "Running final validation..."
+    )
 
-if missing_columns:
-    raise ValueError(
-        f"Missing required columns after cleaning: {missing_columns}"
-    ) 
-    def final_validation(self) -> None:
-        """
-        Perform strict final validation.
-        """
+    # --------------------------------------------------
+    # Validate expected schema
+    # --------------------------------------------------
 
-        logger.info(
-            "Running final validation..."
+    missing_columns = [
+        column
+        for column in EXPECTED_COLUMNS
+        if column not in self.df.columns
+    ]
+
+    if missing_columns:
+        raise ValueError(
+            "Missing required columns after cleaning: "
+            f"{missing_columns}"
         )
 
-        if self.df.empty:
+    # --------------------------------------------------
+    # Dataset must not be empty
+    # --------------------------------------------------
 
-            raise ValueError(
-                "Dataset became empty "
-                "after cleaning."
-            )
-
-        if "incident_id" not in self.df.columns:
-
-            raise ValueError(
-                "Required column 'incident_id' "
-                "is missing."
-            )
-
-        duplicate_count = int(
-            self.df[
-                "incident_id"
-            ]
-            .duplicated()
-            .sum()
+    if self.df.empty:
+        raise ValueError(
+            "Dataset became empty after cleaning."
         )
 
-        if duplicate_count > 0:
+    # --------------------------------------------------
+    # Validate incident_id
+    # --------------------------------------------------
 
-            raise ValueError(
-                f"{duplicate_count} duplicate "
-                "incident_id value(s) remain."
-            )
-
-        missing_values = int(
-            self.df
-            .isna()
-            .sum()
-            .sum()
+    if self.df["incident_id"].isna().any():
+        raise ValueError(
+            "incident_id contains missing values."
         )
 
-        if missing_values > 0:
+    duplicate_count = int(
+        self.df["incident_id"]
+        .duplicated()
+        .sum()
+    )
 
-            raise ValueError(
-                f"{missing_values} missing "
-                "value(s) remain after cleaning."
-            )
-
-        logger.info(
-            "Final validation completed successfully."
+    if duplicate_count > 0:
+        raise ValueError(
+            f"{duplicate_count} duplicate "
+            "incident_id value(s) remain."
         )
 
-    # ======================================================
-    # Save Clean Dataset
-    # ======================================================
+    # --------------------------------------------------
+    # Validate remaining missing values
+    # --------------------------------------------------
 
-    def save_clean_dataset(self) -> None:
-        """
-        Save cleaned dataset.
-        """
+    missing_values = int(
+        self.df.isna()
+        .sum()
+        .sum()
+    )
 
-        logger.info(
-            "Saving cleaned dataset..."
+    if missing_values > 0:
+        raise ValueError(
+            f"{missing_values} missing "
+            "value(s) remain after cleaning."
         )
 
-        CLEAN_DATA_FILE.parent.mkdir(
-            parents=True,
-            exist_ok=True,
-        )
-
-        self.df.to_csv(
-            CLEAN_DATA_FILE,
-            index=False,
-        )
-
-        logger.info(
-            "Clean dataset saved to %s",
-            CLEAN_DATA_FILE,
-        )
-
-    # ======================================================
-    # Execute Complete Cleaning Pipeline
-    # ======================================================
-
-    def run(self) -> pd.DataFrame:
-        """
-        Execute complete data cleaning pipeline.
-        """
-
-        logger.info("=" * 60)
-        logger.info(
-            "Starting Data Cleaning Pipeline"
-        )
-        logger.info("=" * 60)
-
-        self.validate_required_columns()
-
-        self.remove_duplicates()
-
-        self.handle_missing_values()
-
-        self.parse_incident_date()
-
-        self.validate_numeric_columns()
-
-        self.standardize_categories()
-
-        self.normalize_boolean_columns()
-
-        self.handle_outliers()
-
-        self.validate_ranges()
-
-        self.final_validation()
-
-        self.dataset_statistics()
-
-        self.save_quality_report()
-
-        self.save_clean_dataset()
-
-        logger.info("=" * 60)
-        logger.info(
-            "Data Cleaning Pipeline Completed Successfully"
-        )
-        logger.info("=" * 60)
-
-        return self.df
+    logger.info(
+        "Final validation completed successfully."
+    )
 
 
-# ==========================================================
-# Standalone Execution
-# ==========================================================
+# ======================================================
+# Save Clean Dataset
+# ======================================================
 
-if __name__ == "__main__":
+def save_clean_dataset(self) -> None:
+    """
+    Save cleaned dataset.
+    """
 
-    from src.data_loader import DataLoader
+    logger.info(
+        "Saving cleaned dataset..."
+    )
 
-    try:
+    CLEAN_DATA_FILE.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
 
-        logger.info(
-            "Loading raw dataset..."
-        )
+    self.df.to_csv(
+        CLEAN_DATA_FILE,
+        index=False,
+    )
 
-        loader = DataLoader()
+    logger.info(
+        "Clean dataset saved to %s",
+        CLEAN_DATA_FILE,
+    )
 
-        raw_df = loader.run()
 
-        logger.info(
-            "Running Data Cleaning Pipeline..."
-        )
+# ======================================================
+# Execute Complete Cleaning Pipeline
+# ======================================================
 
-        cleaner = DataCleaner(
-            raw_df
-        )
+def run(self) -> pd.DataFrame:
+    """
+    Execute complete data cleaning pipeline.
+    """
 
-        clean_df = cleaner.run()
+    logger.info("=" * 60)
+    logger.info(
+        "Starting Data Cleaning Pipeline"
+    )
+    logger.info("=" * 60)
 
-        print(
-            "\n"
-            + "=" * 70
-        )
+    self.validate_required_columns()
 
-        print(
-            "DATA CLEANING PIPELINE COMPLETED"
-        )
+    self.remove_duplicates()
 
-        print(
-            "=" * 70
-        )
+    self.handle_missing_values()
 
-        print(
-            f"Rows              : "
-            f"{len(clean_df)}"
-        )
+    self.parse_incident_date()
 
-        print(
-            f"Columns           : "
-            f"{len(clean_df.columns)}"
-        )
+    self.validate_numeric_columns()
 
-        print(
-            f"Clean Dataset     : "
-            f"{CLEAN_DATA_FILE}"
-        )
+    self.standardize_categories()
 
-        print(
-            f"Quality Report    : "
-            f"{QUALITY_REPORT_FILE}"
-        )
+    self.normalize_boolean_columns()
 
-        print(
-            "=" * 70
-        )
+    # Statistical outlier treatment first
+    self.handle_outliers()
 
-    except Exception as error:
+    # Business-rule range enforcement after outliers
+    self.validate_ranges()
 
-        logger.exception(
-            "Data Cleaning Pipeline Failed."
-        )
+    self.final_validation()
 
-        print(
-            "\nPipeline Error"
-        )
+    self.dataset_statistics()
 
-        print(error)
+    self.save_quality_report()
+
+    self.save_clean_dataset()
+
+    logger.info("=" * 60)
+    logger.info(
+        "Data Cleaning Pipeline Completed Successfully"
+    )
+    logger.info("=" * 60)
+
+    return self.df
