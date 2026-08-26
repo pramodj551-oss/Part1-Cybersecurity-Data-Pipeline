@@ -40,10 +40,29 @@ jobs:
           --output executed_EDA.ipynb --output-dir /tmp
           --ExecutePreprocessor.timeout=180
 
+      - name: Validate executed EDA notebook
+        run: >-
+          python -c "import nbformat; p='/tmp/executed_EDA.ipynb'; nb=nbformat.read(p, as_version=4); assert nb.cells, 'EDA notebook has no cells'; assert not any(cell.cell_type == 'code' and cell.get('outputs') and any('ename' in out for out in cell.outputs) for cell in nb.cells), 'EDA notebook contains execution errors'; print('EDA runtime validation: PASS')"
+
       - name: Verify generated artifacts
         run: |
-          test -f data/processed/clean_incidents_reports.csv
-          test -f data/processed/engineered_incidents.csv
-          test -f outputs/incidents.db
-          test -f outputs/summary_report.csv
-          test -f outputs/cleaning_report.json
+          test -s data/processed/clean_incidents_reports.csv
+          test -s data/processed/engineered_incidents.csv
+          test -s outputs/incidents.db
+          test -s outputs/summary_report.csv
+          test -s outputs/cleaning_report.json
+          test -s /tmp/executed_EDA.ipynb
+
+      - name: Upload EDA and pipeline artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: step8-eda-pipeline-artifacts
+          path: |
+            /tmp/executed_EDA.ipynb
+            data/processed/clean_incidents_reports.csv
+            data/processed/engineered_incidents.csv
+            outputs/incidents.db
+            outputs/summary_report.csv
+            outputs/cleaning_report.json
+          if-no-files-found: error
