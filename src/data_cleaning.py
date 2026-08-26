@@ -731,7 +731,7 @@ class DataCleaner:
             "%d outlier values capped.",
             total_outliers,
         )
-        # ======================================================
+# ======================================================
 # Final Dataset Validation
 # ======================================================
 
@@ -890,3 +890,62 @@ def run(self) -> pd.DataFrame:
     logger.info("=" * 60)
 
     return self.df
+    # ==========================================================
+# Standalone Execution
+# ==========================================================
+
+if __name__ == "__main__":
+
+    from src.data_loader import DataLoader
+
+    try:
+
+        logger.info(
+            "Loading raw dataset..."
+        )
+
+        loader = DataLoader()
+
+        raw_df = loader.run()
+
+        logger.info(
+            "Running Data Cleaning Pipeline..."
+        )
+
+        cleaner = DataCleaner(raw_df)
+
+        clean_df = cleaner.run()
+
+        print("\n" + "=" * 70)
+        print(
+            "DATA CLEANING PIPELINE COMPLETED"
+        )
+        print("=" * 70)
+
+        print(
+            f"Rows              : {len(clean_df)}"
+        )
+
+        print(
+            f"Columns           : {len(clean_df.columns)}"
+        )
+
+        print(
+            f"Clean Dataset     : {CLEAN_DATA_FILE}"
+        )
+
+        print(
+            f"Quality Report    : {QUALITY_REPORT_FILE}"
+        )
+
+        print("=" * 70)
+
+    except Exception as error:
+
+        logger.exception(
+            "Data Cleaning Pipeline Failed."
+        )
+
+        print("\nPipeline Error")
+        print(error)
+        
