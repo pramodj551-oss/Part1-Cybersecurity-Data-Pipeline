@@ -105,11 +105,24 @@ class DataCleaner:
 
     @staticmethod
     def convert_boolean(value):
+    if value is None:
+        return None
 
-        """
-        Convert different boolean formats
-        into True / False.
-        """
+    if isinstance(value, bool):
+        return value
+
+    value = str(value).strip().lower()
+
+    if value in {"true", "t", "yes", "y", "1"}:
+        return True
+
+    if value in {"false", "f", "no", "n", "0"}:
+        return False
+
+    raise ValueError(
+        f"Invalid boolean value: {value!r}. "
+        "Expected true/false, yes/no, or 1/0."
+        )
 
         if pd.isna(value):
 
@@ -360,9 +373,23 @@ class DataCleaner:
             "Parsing incident_date..."
         )
 
-        self.df["incident_date"] = pd.to_datetime(
-            self.df["incident_date"],
-            errors="coerce",
+        parsed_dates = pd.to_datetime(
+    df["incident_date"],
+    errors="coerce"
+)
+
+invalid_dates = (
+    df["incident_date"].notna()
+    & parsed_dates.isna()
+)
+
+if invalid_dates.any():
+    count = int(invalid_dates.sum())
+    raise ValueError(
+        f"Found {count} invalid incident_date value(s)."
+    )
+
+df["incident_date"] = parsed_dates
         )
 
         invalid_dates = (
