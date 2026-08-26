@@ -16,15 +16,20 @@ QUERIES_FILE = ROOT / "queries.sql"
 
 
 def _load_queries() -> list[str]:
-    """Split queries.sql into executable SQL statements."""
+    """Extract the 29 numbered SQL statements without being confused by comments."""
     text = QUERIES_FILE.read_text(encoding="utf-8")
-    statements = [statement.strip() for statement in text.split(";")]
-    return [statement for statement in statements if statement and not statement.startswith("--")]
-
-
-def _strip_comments(statement: str) -> str:
-    lines = [line for line in statement.splitlines() if not line.strip().startswith("--")]
-    return "\n".join(lines).strip()
+    matches = re.findall(
+        r"(?ms)^\s*--\s*(\d+)\.\s+.*?\n(.*?)(?=^\s*--\s*\d+\.\s+|\Z)",
+        text,
+    )
+    queries = []
+    for number, body in matches:
+        statement = re.sub(r"(?m)^\s*--.*(?:\n|$)", "", body).strip()
+        statement = statement.rstrip(";").strip()
+        if statement:
+            queries.append((int(number), statement))
+    queries.sort(key=lambda item: item[0])
+    return [statement for _, statement in queries]
 
 
 def test_queries_file_contains_29_queries() -> None:
@@ -33,9 +38,8 @@ def test_queries_file_contains_29_queries() -> None:
 
 
 def test_all_29_queries_execute_against_engineered_dataset() -> None:
-    assert ENGINEERED_DATA_FILE.exists(), (
-        f"Engineered dataset not found: {ENGINEERED_DATA_FILE}"
-    )
+    if not ENGINEERED_DATA_FILE.exists():
+        pytest.skip("Engineered dataset is created by the end-to-end pipeline step")
 
     dataframe = pd.read_csv(ENGINEERED_DATA_FILE)
     assert not dataframe.empty, "Engineered dataset is empty"
@@ -44,13 +48,10 @@ def test_all_29_queries_execute_against_engineered_dataset() -> None:
     try:
         dataframe.to_sql(DATABASE_TABLE, connection, index=False, if_exists="replace")
         queries = _load_queries()
+        assert len(queries) == 29
 
         failures: list[str] = []
-        for index, raw_query in enumerate(queries, start=1):
-            query = _strip_comments(raw_query)
-            if not query:
-                failures.append(f"Query {index}: empty SQL statement")
-                continue
+        for index, query in enumerate(queries, start=1):
             try:
                 pd.read_sql_query(query, connection)
             except Exception as exc:
