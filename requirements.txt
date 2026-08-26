@@ -1,5 +1,5 @@
 # Runtime dependencies
-# Bounded ranges keep CI reproducible while allowing compatible patch/minor updates.
+# Keep CI reproducible while allowing compatible patch/minor updates.
 pandas>=2.2.0,<3.1
 numpy>=1.26.0,<3.0
 matplotlib>=3.8.0,<4.0
@@ -13,3 +13,7 @@ nbconvert>=7.16.0,<8.0
 
 # Test dependencies
 pytest>=8.0.0,<9.0
+
+# Explicit CI/runtime compatibility
+nbclient>=0.10.0,<1.0
+traitlets>=5.14.0,<6.0
