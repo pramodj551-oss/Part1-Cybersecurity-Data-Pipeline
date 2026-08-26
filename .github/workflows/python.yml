@@ -25,11 +25,14 @@ jobs:
       - name: Compile Python sources
         run: python -m compileall -q src run_pipeline.py
 
-      - name: Run regression and integration tests
+      - name: Run regression and unit tests
         run: python -m pytest -q
 
       - name: Run end-to-end pipeline
         run: python run_pipeline.py
+
+      - name: Execute 29 SQL integration queries
+        run: python -m pytest -q tests/test_sql_queries.py
 
       - name: Validate EDA notebook format
         run: python -c "import nbformat; nbformat.read('EDA.ipynb', as_version=4)"
