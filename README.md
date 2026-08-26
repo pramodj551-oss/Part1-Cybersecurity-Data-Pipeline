@@ -82,7 +82,9 @@ Part1-Cybersecurity-Data-Pipeline/
 │   ├── raw/
 │   │   └── cybersecurity_incident_reports.csv
 │   └── processed/
+│       └── .gitkeep
 ├── outputs/
+│   └── .gitkeep
 ├── logs/
 ├── src/
 │   ├── __init__.py
@@ -113,7 +115,7 @@ outputs/cleaning_report.json
 logs/pipeline.log
 ```
 
-Generated/processed outputs and local logs are excluded from Git tracking by `.gitignore`.
+These are runtime-generated artifacts. They are intentionally excluded from Git tracking; CI verifies their creation during the end-to-end run.
 
 ## Main Features
 
@@ -138,9 +140,9 @@ The pipeline validates file existence, required columns, empty datasets, duplica
 
 ## Analytics
 
-`queries.sql` contains analytical queries for incident volume, sectors, regions, attack types, threat actors, severity, downtime, financial impact, risk and other descriptive metrics. The automated integration suite validates the configured SQL query set against the generated SQLite database.
+`queries.sql` contains analytical queries for incident volume, sectors, regions, attack types, threat actors, severity, downtime, financial impact, risk and other descriptive metrics. The automated integration suite validates all 29 configured SQL queries against the generated dataset/database during CI.
 
-`EDA.ipynb` provides exploratory analysis of the cleaned data, including data-quality summaries, numeric/categorical distributions, incident trends, severity, financial indicators, boolean security indicators and correlations. The notebook is also validated and executed by CI.
+`EDA.ipynb` provides exploratory analysis of the cleaned data, including data-quality summaries, numeric/categorical distributions, incident trends, severity, financial indicators, boolean security indicators and correlations. CI validates the notebook JSON, executes it with a bounded timeout, validates the executed notebook and verifies the generated runtime artifacts.
 
 ## Testing
 
@@ -150,23 +152,26 @@ Run the regression and integration suite with:
 python -m pytest -q
 ```
 
-The suite covers data loading, cleaning, feature engineering, schema behavior and important edge cases.
+The suite covers data loading, cleaning, feature engineering, schema behavior and important edge cases. SQL integration is executed after the end-to-end pipeline has generated the required runtime dataset in CI.
 
 ## CI
 
 GitHub Actions runs on pushes and pull requests targeting `main`.
 
-The current CI workflow:
+The current CI workflow executes these gates in order:
 
 1. Checks out the repository using `actions/checkout@v5`.
 2. Sets up Python 3.11 using `actions/setup-python@v6` with pip caching.
 3. Installs dependencies from `requirements.txt`.
 4. Compiles Python sources.
-5. Runs the pytest regression/integration suite.
+5. Runs the pytest regression/unit suite.
 6. Executes the complete end-to-end pipeline.
-7. Validates `EDA.ipynb` as a Jupyter notebook.
-8. Executes the EDA notebook with a bounded timeout.
-9. Verifies the five expected generated artifacts exist.
+7. Executes and validates all 29 SQL integration queries against the generated data.
+8. Validates `EDA.ipynb` as a Jupyter notebook.
+9. Executes the EDA notebook with a bounded timeout.
+10. Validates the executed notebook has no execution errors.
+11. Verifies all expected generated artifacts are non-empty.
+12. Uploads the EDA and pipeline artifacts for CI inspection.
 
 A CI run must complete successfully before the corresponding change is considered runtime-verified.
 
