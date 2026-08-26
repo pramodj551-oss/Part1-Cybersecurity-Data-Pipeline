@@ -31,7 +31,6 @@ from src.config import (
     QUALITY_REPORT_FILE,
 )
 
-
 logger = logging.getLogger(__name__)
 
 if not logger.handlers:
@@ -53,6 +52,8 @@ class DataCleaner:
             "duplicates_removed": 0,
             "missing_values_filled": 0,
             "outliers_capped": 0,
+            "outliers_capped_by_column": {},
+            "range_adjustments_by_column": {},
         }
         logger.info("DataCleaner initialized with %d rows.", len(self.df))
 
@@ -230,43 +231,88 @@ class DataCleaner:
         logger.info("Boolean normalization completed.")
 
     def validate_ranges(self) -> None:
-        """Enforce configured numeric business-rule limits."""
-        if "severity_score" in self.df.columns:
-            self.df["severity_score"] = self.df["severity_score"].clip(
-                lower=0, upper=MAX_SEVERITY_SCORE
-            )
-        if "downtime_hours" in self.df.columns:
-            self.df["downtime_hours"] = self.df["downtime_hours"].clip(
-                lower=0, upper=MAX_DOWNTIME_HOURS
-            )
-        if "detection_time_hours" in self.df.columns:
-            self.df["detection_time_hours"] = self.df["detection_time_hours"].clip(
-                lower=0
-            )
-        if "response_team_size" in self.df.columns:
-            self.df["response_team_size"] = self.df["response_team_size"].clip(
-                lower=1, upper=MAX_RESPONSE_TEAM_SIZE
-            )
-        for column in (
+        """Enforce configured numeric business-rule limits and report changes."""
+        adjustments: dict[str, int] = {}
+
+        def clip_and_count(
+            column: str,
+            lower: float | None = None,
+            upper: float | None = None,
+        ) -> None:
+            if column not in self.df.columns:
+                return
+
+            original = self.df[column].copy()
+            cleaned = original.clip(lower=lower, upper=upper)
+            changed = int((original != cleaned).sum())
+            self.df[column] = cleaned
+
+            if changed:
+                adjustments[column] = changed
+
+        clip_and_count(
+            "severity_score",
+            lower=0,
+            upper=MAX_SEVERITY_SCORE,
+        )
+        clip_and_count(
+            "downtime_hours",
+            lower=0,
+            upper=MAX_DOWNTIME_HOURS,
+        )
+        clip_and_count(
+            "detection_time_hours",
+            lower=0,
+        )
+        clip_and_count(
+            "response_team_size",
+            lower=1,
+            upper=MAX_RESPONSE_TEAM_SIZE,
+        )
+        clip_and_count("records_affected", lower=0)
+        clip_and_count("ransom_demand_usd", lower=0)
+        clip_and_count("regulatory_fine_usd", lower=0)
+
+        self.report["range_adjustments_by_column"] = adjustments
+        logger.info(
+            "Range validation completed. Adjustments: %s",
+            adjustments,
+        )
+
+    def handle_outliers(self) -> None:
+        """Cap IQR outliers only for unbounded monetary/impact metrics."""
+        # These columns have explicit business limits and should not be
+        # statistically capped after range validation.
+        outlier_columns = {
             "records_affected",
             "ransom_demand_usd",
             "regulatory_fine_usd",
-        ):
-            if column in self.df.columns:
-                self.df[column] = self.df[column].clip(lower=0)
-        logger.info("Range validation completed.")
+        }
 
-    def handle_outliers(self) -> None:
-        """Cap statistical outliers using IQR."""
         total_outliers = 0
+        capped_by_column: dict[str, int] = {}
+
         for column in NUMERIC_COLUMNS:
             if column not in self.df.columns:
                 continue
+            if column not in outlier_columns:
+                continue
+
             cleaned_series, capped = self.cap_outliers(self.df[column])
             self.df[column] = cleaned_series
             total_outliers += capped
+
+            if capped:
+                capped_by_column[column] = capped
+
         self.report["outliers_capped"] = total_outliers
-        logger.info("%d outlier values capped.", total_outliers)
+        self.report["outliers_capped_by_column"] = capped_by_column
+
+        logger.info(
+            "%d statistical outlier values capped: %s",
+            total_outliers,
+            capped_by_column,
+        )
 
     def final_validation(self) -> None:
         """Perform strict final validation before saving."""
@@ -317,8 +363,11 @@ class DataCleaner:
         self.validate_numeric_columns()
         self.standardize_categories()
         self.normalize_boolean_columns()
-        self.handle_outliers()
+
+        # Business-rule limits are applied before statistical outlier treatment.
         self.validate_ranges()
+        self.handle_outliers()
+
         self.final_validation()
         self.dataset_statistics()
         self.save_quality_report()
