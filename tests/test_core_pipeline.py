@@ -1,13 +1,14 @@
-"""Core regression tests for the Part 1 cybersecurity data pipeline."""
+"""Core regression and integration tests for the Part 1 pipeline."""
 
 from pathlib import Path
 
 import pandas as pd
 import pytest
 
-from src.config import EXPECTED_COLUMNS
+from src.config import DATABASE_TABLE, EXPECTED_COLUMNS
 from src.data_cleaning import DataCleaner
 from src.data_loader import DataLoader
+from src.database import DatabaseManager
 from src.feature_engineering import FeatureEngineer
 
 
@@ -37,7 +38,7 @@ def valid_dataframe() -> pd.DataFrame:
 
 
 def test_data_loader_schema_validation(valid_dataframe):
-    """Loader accepts the complete required schema and rejects missing columns."""
+    """Loader accepts the complete schema and rejects missing columns."""
     DataLoader.validate_empty(valid_dataframe)
     DataLoader.validate_schema(valid_dataframe)
 
@@ -59,7 +60,7 @@ def test_data_cleaner_produces_valid_output(valid_dataframe):
 
 
 def test_feature_engineering_preserves_rows_and_creates_features(valid_dataframe):
-    """Feature engineering preserves row count and creates finite features."""
+    """Feature engineering preserves rows and creates finite features."""
     cleaned = DataCleaner(valid_dataframe).run()
     engineered = FeatureEngineer(cleaned).run()
 
@@ -75,7 +76,7 @@ def test_feature_engineering_preserves_rows_and_creates_features(valid_dataframe
 
 
 def test_feature_engineering_handles_zero_denominators(valid_dataframe):
-    """Ratio features must remain finite when denominators are zero."""
+    """Ratio features remain finite when denominators are zero."""
     cleaned = DataCleaner(valid_dataframe).run()
     engineered = FeatureEngineer(cleaned).run()
 
@@ -97,3 +98,60 @@ def test_data_loader_missing_file(tmp_path: Path):
 
     with pytest.raises(FileNotFoundError, match="Dataset not found"):
         loader.load_csv()
+
+
+def test_database_round_trip_and_schema(valid_dataframe, tmp_path: Path):
+    """Engineered data can be stored, validated and read back from SQLite."""
+    cleaned = DataCleaner(valid_dataframe).run()
+    engineered = FeatureEngineer(cleaned).run()
+
+    manager = DatabaseManager(database_path=tmp_path / "integration.db")
+    manager.connect()
+    try:
+        manager.create_table(engineered)
+        manager.replace_table(engineered)
+        manager.verify_table()
+        manager.verify_dataframe_schema(engineered)
+
+        assert manager.get_row_count() == len(engineered)
+        preview = manager.preview_table(2)
+        assert len(preview) == 2
+        assert preview["incident_id"].is_unique
+
+        kpi = manager.fetch_dataframe(
+            f"SELECT COUNT(*) AS total FROM {DATABASE_TABLE}"
+        )
+        assert int(kpi.iloc[0]["total"]) == len(engineered)
+    finally:
+        manager.close()
+
+
+def test_all_sql_queries_execute(valid_dataframe, tmp_path: Path):
+    """Every documented SQL analytics query must execute against the current schema."""
+    cleaned = DataCleaner(valid_dataframe).run()
+    engineered = FeatureEngineer(cleaned).run()
+
+    manager = DatabaseManager(database_path=tmp_path / "queries.db")
+    manager.connect()
+    try:
+        manager.create_table(engineered)
+        manager.replace_table(engineered)
+
+        sql_text = Path("queries.sql").read_text(encoding="utf-8")
+        statements = []
+        for raw_statement in sql_text.split(";"):
+            lines = [line for line in raw_statement.splitlines() if not line.strip().startswith("--")]
+            statement = "\n".join(lines).strip()
+            if statement:
+                statements.append(statement)
+
+        assert len(statements) == 29
+
+        for index, statement in enumerate(statements, start=1):
+            try:
+                result = manager.fetch_dataframe(statement)
+            except Exception as error:
+                raise AssertionError(f"SQL query #{index} failed: {error}") from error
+            assert isinstance(result, pd.DataFrame)
+    finally:
+        manager.close()
