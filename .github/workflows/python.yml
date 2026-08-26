@@ -2,23 +2,19 @@ name: Python CI
 
 on:
   push:
-    branches:
-      - main
-
+    branches: [main]
   pull_request:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
   test:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: pip
@@ -35,13 +31,13 @@ jobs:
       - name: Run end-to-end pipeline
         run: python run_pipeline.py
 
+      - name: Validate EDA notebook format
+        run: python -c "import nbformat; nbformat.read('EDA.ipynb', as_version=4)"
+
       - name: Execute EDA notebook
         run: >-
-          python -m nbconvert
-          --to notebook
-          --execute EDA.ipynb
-          --output executed_EDA.ipynb
-          --output-dir /tmp
+          python -m nbconvert --to notebook --execute EDA.ipynb
+          --output executed_EDA.ipynb --output-dir /tmp
           --ExecutePreprocessor.timeout=180
 
       - name: Verify generated artifacts
