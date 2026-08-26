@@ -1,4 +1,5 @@
 # Runtime dependencies
+# Bounded ranges keep CI reproducible while allowing compatible patch/minor updates.
 pandas>=2.2.0,<3.1
 numpy>=1.26.0,<3.0
 matplotlib>=3.8.0,<4.0
