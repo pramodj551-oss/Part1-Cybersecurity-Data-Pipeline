@@ -26,7 +26,6 @@ from src.config import (
     OUTPUT_DIR,
 )
 
-
 logger = logging.getLogger(__name__)
 
 if not logger.handlers:
@@ -44,7 +43,6 @@ class DatabaseManager:
         self.database_path = Path(database_path)
         self.connection: sqlite3.Connection | None = None
         self.cursor: sqlite3.Cursor | None = None
-        logger.info("DatabaseManager initialized.")
 
     def connect(self) -> None:
         """Establish SQLite connection."""
@@ -52,7 +50,6 @@ class DatabaseManager:
         try:
             self.connection = sqlite3.connect(str(self.database_path))
             self.cursor = self.connection.cursor()
-            logger.info("Database connection established.")
         except sqlite3.Error:
             logger.exception("Database connection failed.")
             raise
@@ -70,10 +67,7 @@ class DatabaseManager:
                 f"Engineered dataset not found: {ENGINEERED_DATA_FILE}"
             )
 
-        dataframe = pd.read_csv(
-            ENGINEERED_DATA_FILE,
-            parse_dates=["incident_date"],
-        )
+        dataframe = pd.read_csv(ENGINEERED_DATA_FILE, parse_dates=["incident_date"])
 
         if dataframe.empty:
             raise ValueError("Engineered dataset is empty.")
@@ -98,22 +92,9 @@ class DatabaseManager:
 
         if dataframe.isna().any().any():
             missing = dataframe.columns[dataframe.isna().any()].tolist()
-            raise ValueError(
-                f"Engineered dataset contains missing values: {missing}"
-            )
+            raise ValueError(f"Engineered dataset contains missing values: {missing}")
 
-        logger.info("Engineered dataset loaded and validated: %d rows.", len(dataframe))
         return dataframe
-
-    def database_info(self) -> None:
-        """Display database information."""
-        self.validate_connection()
-        print("\n" + "=" * 60)
-        print("DATABASE INFORMATION")
-        print("=" * 60)
-        print(f"Database : {self.database_path}")
-        print(f"Table    : {DATABASE_TABLE}")
-        print("=" * 60)
 
     @staticmethod
     def _sqlite_type(series: pd.Series) -> str:
@@ -134,22 +115,17 @@ class DatabaseManager:
         return '"' + str(identifier).replace('"', '""') + '"'
 
     def create_table(self, dataframe: pd.DataFrame | None = None) -> None:
-        """Create or evolve the SQLite schema to match the engineered dataset."""
+        """Create the controlled SQLite schema and add new engineered columns."""
         self.validate_connection()
-
-        if dataframe is not None:
-            if dataframe.empty:
-                raise ValueError("Cannot create schema from an empty dataframe.")
-            columns = dataframe.columns.tolist()
-        else:
-            columns = EXPECTED_COLUMNS.copy()
+        columns = dataframe.columns.tolist() if dataframe is not None else EXPECTED_COLUMNS.copy()
+        if not columns:
+            raise ValueError("Cannot create database schema without columns.")
 
         definitions: list[str] = []
         for column in columns:
             if column == "incident_id":
                 definitions.append('"incident_id" TEXT PRIMARY KEY')
                 continue
-
             if dataframe is not None and column in dataframe.columns:
                 sqlite_type = self._sqlite_type(dataframe[column])
             elif column in BOOLEAN_COLUMNS:
@@ -160,23 +136,17 @@ class DatabaseManager:
                 sqlite_type = "TIMESTAMP"
             else:
                 sqlite_type = "TEXT"
+            definitions.append(f"{self._quote_identifier(column)} {sqlite_type}")
 
-            definitions.append(
-                f"{self._quote_identifier(column)} {sqlite_type}"
-            )
-
-        create_table_query = (
+        query = (
             f"CREATE TABLE IF NOT EXISTS {self._quote_identifier(DATABASE_TABLE)} ("
-            + ", ".join(definitions)
-            + ");"
+            + ", ".join(definitions) + ");"
         )
 
         try:
-            self.cursor.execute(create_table_query)
-
+            self.cursor.execute(query)
             existing = self.get_table_schema()
             existing_columns = set(existing["name"].tolist())
-
             if dataframe is not None:
                 for column in columns:
                     if column in existing_columns:
@@ -186,35 +156,33 @@ class DatabaseManager:
                             "Existing database table is missing the incident_id PRIMARY KEY."
                         )
                     sqlite_type = self._sqlite_type(dataframe[column])
-                    alter_query = (
+                    self.cursor.execute(
                         f"ALTER TABLE {self._quote_identifier(DATABASE_TABLE)} "
                         f"ADD COLUMN {self._quote_identifier(column)} {sqlite_type}"
                     )
-                    self.cursor.execute(alter_query)
-
             self.connection.commit()
-            logger.info("Database schema verified/evolved successfully.")
         except Exception:
             self.connection.rollback()
             logger.exception("Table creation/schema migration failed.")
             raise
 
-    def insert_dataframe(
-        self,
-        dataframe: pd.DataFrame,
-        if_exists: str = "append",
-    ) -> None:
-        """Insert a validated dataframe without silently changing schema."""
+    def verify_dataframe_schema(self, dataframe: pd.DataFrame) -> None:
+        """Verify dataframe columns are represented in the database schema."""
+        self.validate_connection()
+        schema = self.get_table_schema()
+        database_columns = schema["name"].tolist()
+        missing = [column for column in dataframe.columns if column not in database_columns]
+        if missing:
+            raise ValueError(f"Database is missing engineered columns: {missing}")
+
+    def insert_dataframe(self, dataframe: pd.DataFrame, if_exists: str = "append") -> None:
+        """Insert validated dataframe rows."""
         self.validate_connection()
         if dataframe.empty:
             raise ValueError("Cannot insert empty dataframe.")
         if if_exists not in {"append", "fail"}:
-            raise ValueError(
-                "if_exists must be 'append' or 'fail'; use replace_table() for refreshes."
-            )
-
+            raise ValueError("if_exists must be 'append' or 'fail'.")
         self.verify_dataframe_schema(dataframe)
-
         try:
             dataframe.to_sql(
                 DATABASE_TABLE,
@@ -224,61 +192,28 @@ class DatabaseManager:
                 method="multi",
             )
             self.connection.commit()
-            logger.info("%d rows inserted.", len(dataframe))
         except Exception:
             self.connection.rollback()
             logger.exception("Data insertion failed.")
             raise
 
     def replace_table(self, dataframe: pd.DataFrame) -> None:
-        """Refresh table data while preserving the controlled SQLite schema."""
+        """Replace table contents while preserving the controlled schema."""
         self.validate_connection()
         if dataframe.empty:
             raise ValueError("Cannot replace table with an empty dataframe.")
-
         self.create_table(dataframe)
-
         try:
-            self.cursor.execute(
-                f"DELETE FROM {self._quote_identifier(DATABASE_TABLE)}"
-            )
+            self.cursor.execute(f"DELETE FROM {self._quote_identifier(DATABASE_TABLE)}")
             self.connection.commit()
             self.insert_dataframe(dataframe, if_exists="append")
-            logger.info("Database table refreshed while preserving schema.")
         except Exception:
             self.connection.rollback()
             logger.exception("Table refresh failed.")
             raise
 
-    def append_table(self, dataframe: pd.DataFrame) -> None:
-        """Append new records to the existing table."""
-        self.insert_dataframe(dataframe, if_exists="append")
-
-    def verify_dataframe_schema(self, dataframe: pd.DataFrame) -> None:
-        """Verify that dataframe columns match database columns exactly."""
-        self.validate_connection()
-        schema = self.get_table_schema()
-        database_columns = schema["name"].tolist()
-        dataframe_columns = dataframe.columns.tolist()
-
-        missing_in_database = [
-            column for column in dataframe_columns
-            if column not in database_columns
-        ]
-        if missing_in_database:
-            raise ValueError(
-                f"Database is missing engineered columns: {missing_in_database}"
-            )
-
-        if database_columns != dataframe_columns:
-            logger.warning(
-                "Database/dataframe column order differs; validating by column name."
-            )
-
-        logger.info("Database/dataframe schema compatibility verified.")
-
     def verify_table(self) -> None:
-        """Verify table existence and required schema."""
+        """Verify table existence, required columns and incident_id primary key."""
         self.validate_connection()
         table = self.cursor.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
@@ -302,38 +237,21 @@ class DatabaseManager:
         if incident_pk.empty or int(incident_pk.iloc[0]) != 1:
             raise ValueError("incident_id must remain the SQLite PRIMARY KEY.")
 
-        logger.info("Table and schema verification successful.")
-
     def execute_query(self, query: str, parameters: tuple = ()) -> None:
-        """Execute a non-SELECT SQL statement safely with parameters."""
+        """Execute a non-SELECT SQL statement with parameters."""
         self.validate_connection()
         try:
             self.cursor.execute(query, parameters)
             self.connection.commit()
-            logger.info("SQL query executed successfully.")
         except sqlite3.Error:
             self.connection.rollback()
             logger.exception("SQL query execution failed.")
             raise
 
-    def fetch_dataframe(
-        self,
-        query: str,
-        parameters: tuple = (),
-    ) -> pd.DataFrame:
+    def fetch_dataframe(self, query: str, parameters: tuple = ()) -> pd.DataFrame:
         """Execute a SELECT query and return a dataframe."""
         self.validate_connection()
-        try:
-            dataframe = pd.read_sql_query(
-                query,
-                self.connection,
-                params=parameters,
-            )
-            logger.info("%d rows fetched.", len(dataframe))
-            return dataframe
-        except sqlite3.Error:
-            logger.exception("Data fetch failed.")
-            raise
+        return pd.read_sql_query(query, self.connection, params=parameters)
 
     def get_row_count(self) -> int:
         """Return total row count."""
@@ -353,13 +271,9 @@ class DatabaseManager:
 
     def export_query_results(self, query: str, output_file=None) -> None:
         """Export query results to CSV."""
-        if output_file is None:
-            output_file = OUTPUT_DIR / "query_results.csv"
-        output_path = Path(output_file)
+        output_path = Path(output_file or (OUTPUT_DIR / "query_results.csv"))
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        dataframe = self.fetch_dataframe(query)
-        dataframe.to_csv(output_path, index=False)
-        logger.info("Query results exported to %s", output_path)
+        self.fetch_dataframe(query).to_csv(output_path, index=False)
 
     def preview_table(self, rows: int = 5) -> pd.DataFrame:
         """Return first N rows from the table."""
@@ -376,11 +290,9 @@ class DatabaseManager:
             self.connection.close()
             self.connection = None
             self.cursor = None
-            logger.info("Database connection closed.")
 
     def run(self) -> pd.DataFrame:
-        """Execute complete database pipeline."""
-        logger.info("Starting Database Pipeline")
+        """Execute complete database integration flow."""
         try:
             self.connect()
             dataframe = self.load_engineered_dataset()
@@ -388,18 +300,11 @@ class DatabaseManager:
             self.replace_table(dataframe)
             self.verify_table()
             self.verify_dataframe_schema(dataframe)
-
             row_count = self.get_row_count()
             if row_count != len(dataframe):
                 raise ValueError(
                     f"Database row-count mismatch: expected {len(dataframe)}, got {row_count}."
                 )
-
-            self.database_info()
-            logger.info(
-                "Database Pipeline completed successfully: %d rows.",
-                row_count,
-            )
             return dataframe
         except Exception:
             logger.exception("Database Pipeline failed.")
@@ -409,17 +314,12 @@ class DatabaseManager:
 
 
 if __name__ == "__main__":
-    try:
-        manager = DatabaseManager()
-        dataframe = manager.run()
-        print("\n" + "=" * 70)
-        print("DATABASE PIPELINE COMPLETED")
-        print("=" * 70)
-        print(f"Rows Inserted : {len(dataframe)}")
-        print(f"Database File : {DATABASE_FILE}")
-        print(f"Table Name    : {DATABASE_TABLE}")
-        print("=" * 70)
-    except Exception as error:
-        print("\nDatabase Error")
-        print(error)
-        raise
+    manager = DatabaseManager()
+    dataframe = manager.run()
+    print("\n" + "=" * 70)
+    print("DATABASE PIPELINE COMPLETED")
+    print("=" * 70)
+    print(f"Rows Inserted : {len(dataframe)}")
+    print(f"Database File : {DATABASE_FILE}")
+    print(f"Table Name    : {DATABASE_TABLE}")
+    print("=" * 70)
