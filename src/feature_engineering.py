@@ -6,21 +6,13 @@ Author: Pramod Prakash Jadhav
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 import numpy as np
 import pandas as pd
 
-from src.config import ANALYSIS_REFERENCE_DATE, EXPECTED_COLUMNS, LOG_FILE
-
-logger = logging.getLogger(__name__)
-if not logger.handlers:
-    logging.basicConfig(
-        filename=LOG_FILE,
-        level=logging.INFO,
-        format="%(asctime)s | %(levelname)s | %(message)s",
-    )
+from src.config import ANALYSIS_REFERENCE_DATE, EXPECTED_COLUMNS
+from src.logger import logger
 
 
 class FeatureEngineer:
