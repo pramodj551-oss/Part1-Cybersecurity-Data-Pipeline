@@ -43,7 +43,7 @@ The pipeline validates the required schema before processing.
 
 ### 5. Run
 ```bash
-python run_pipeline.py
+python -m src.run_pipeline
 ```
 
 ## Pipeline
@@ -75,7 +75,6 @@ Part1-Cybersecurity-Data-Pipeline/
 ├── requirements.txt
 ├── .env.example
 ├── .gitignore
-├── run_pipeline.py
 ├── queries.sql
 ├── EDA.ipynb
 ├── data/
@@ -95,7 +94,8 @@ Part1-Cybersecurity-Data-Pipeline/
 │   ├── data_cleaning.py
 │   ├── feature_engineering.py
 │   ├── database.py
-│   └── pipeline.py
+│   ├── pipeline.py
+│   └── run_pipeline.py
 ├── tests/
 └── .github/
     └── workflows/
