@@ -371,6 +371,47 @@ class DataCleaner:
                 f"{missing_values} missing value(s) remain after cleaning."
             )
 
+        range_checks = {
+            "severity_score": (0, MAX_SEVERITY_SCORE),
+            "downtime_hours": (0, MAX_DOWNTIME_HOURS),
+            "detection_time_hours": (0, None),
+            "response_team_size": (1, MAX_RESPONSE_TEAM_SIZE),
+            "records_affected": (0, None),
+            "ransom_demand_usd": (0, None),
+            "regulatory_fine_usd": (0, None),
+        }
+
+        for column, (lower, upper) in range_checks.items():
+            if column not in self.df.columns:
+                continue
+
+            series = pd.to_numeric(self.df[column], errors="coerce")
+            invalid_numeric = series.isna()
+            if invalid_numeric.any():
+                count = int(invalid_numeric.sum())
+                raise ValueError(
+                    f"Column '{column}' contains {count} non-numeric value(s) "
+                    "after cleaning."
+                )
+
+            if lower is not None:
+                below_lower = series < lower
+                if below_lower.any():
+                    count = int(below_lower.sum())
+                    raise ValueError(
+                        f"Column '{column}' contains {count} value(s) below "
+                        f"the minimum allowed value of {lower}."
+                    )
+
+            if upper is not None:
+                above_upper = series > upper
+                if above_upper.any():
+                    count = int(above_upper.sum())
+                    raise ValueError(
+                        f"Column '{column}' contains {count} value(s) above "
+                        f"the maximum allowed value of {upper}."
+                    )
+
         logger.info("Final validation completed successfully.")
 
     def save_clean_dataset(self) -> None:
