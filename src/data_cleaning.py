@@ -209,12 +209,16 @@ class DataCleaner:
         logger.info("Missing value handling completed.")
 
     def parse_incident_date(self) -> None:
-        """Convert incident_date to datetime and reject invalid non-null values."""
+        """Convert incident_date using the dataset's explicit date format."""
         if "incident_date" not in self.df.columns:
             raise ValueError("Required column 'incident_date' is missing.")
 
         original_dates = self.df["incident_date"]
-        parsed_dates = pd.to_datetime(original_dates, errors="coerce")
+        parsed_dates = pd.to_datetime(
+            original_dates,
+            format="%Y-%m-%d",
+            errors="coerce",
+        )
         invalid_dates = original_dates.notna() & parsed_dates.isna()
 
         if invalid_dates.any():
@@ -222,11 +226,11 @@ class DataCleaner:
             examples = original_dates[invalid_dates].head(5).tolist()
             raise ValueError(
                 f"Found {count} invalid incident_date value(s). "
-                f"Examples: {examples}"
+                f"Expected YYYY-MM-DD format. Examples: {examples}"
             )
 
         self.df["incident_date"] = parsed_dates
-        logger.info("Datetime conversion completed.")
+        logger.info("Datetime conversion completed using YYYY-MM-DD format.")
 
     def validate_numeric_columns(self) -> None:
         """Ensure numeric columns contain valid numeric values."""
@@ -386,31 +390,19 @@ class DataCleaner:
                 continue
 
             series = pd.to_numeric(self.df[column], errors="coerce")
-            invalid_numeric = series.isna()
-            if invalid_numeric.any():
-                count = int(invalid_numeric.sum())
-                raise ValueError(
-                    f"Column '{column}' contains {count} non-numeric value(s) "
-                    "after cleaning."
-                )
+            invalid = series.isna()
 
             if lower is not None:
-                below_lower = series < lower
-                if below_lower.any():
-                    count = int(below_lower.sum())
-                    raise ValueError(
-                        f"Column '{column}' contains {count} value(s) below "
-                        f"the minimum allowed value of {lower}."
-                    )
-
+                invalid |= series < lower
             if upper is not None:
-                above_upper = series > upper
-                if above_upper.any():
-                    count = int(above_upper.sum())
-                    raise ValueError(
-                        f"Column '{column}' contains {count} value(s) above "
-                        f"the maximum allowed value of {upper}."
-                    )
+                invalid |= series > upper
+
+            if invalid.any():
+                count = int(invalid.sum())
+                raise ValueError(
+                    f"Final validation failed for '{column}': "
+                    f"{count} value(s) outside the allowed range."
+                )
 
         logger.info("Final validation completed successfully.")
 
