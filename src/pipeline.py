@@ -109,6 +109,9 @@ class AnalyticsPipeline:
 
             logger.info("Database updated successfully: %d rows", row_count)
             return row_count
+        except Exception:
+            logger.exception("Database storage stage failed.")
+            raise
         finally:
             manager.close()
 
