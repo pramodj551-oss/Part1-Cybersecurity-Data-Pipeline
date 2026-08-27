@@ -9,7 +9,6 @@ Pramod Prakash Jadhav
 
 from __future__ import annotations
 
-import logging
 import sqlite3
 from pathlib import Path
 
@@ -21,19 +20,10 @@ from src.config import (
     DATABASE_TABLE,
     ENGINEERED_DATA_FILE,
     EXPECTED_COLUMNS,
-    LOG_FILE,
     NUMERIC_COLUMNS,
     OUTPUT_DIR,
 )
-
-logger = logging.getLogger(__name__)
-
-if not logger.handlers:
-    logging.basicConfig(
-        filename=LOG_FILE,
-        level=logging.INFO,
-        format="%(asctime)s | %(levelname)s | %(message)s",
-    )
+from src.logger import logger
 
 
 class DatabaseManager:
