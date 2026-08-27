@@ -10,7 +10,6 @@ Author: Pramod Prakash Jadhav
 from __future__ import annotations
 
 import json
-import logging
 from typing import Any
 
 import pandas as pd
@@ -23,22 +22,13 @@ from src.config import (
     DEFAULT_CATEGORICAL_VALUE,
     DEFAULT_NUMERIC_VALUE,
     EXPECTED_COLUMNS,
-    LOG_FILE,
     MAX_DOWNTIME_HOURS,
     MAX_RESPONSE_TEAM_SIZE,
     MAX_SEVERITY_SCORE,
     NUMERIC_COLUMNS,
     QUALITY_REPORT_FILE,
 )
-
-logger = logging.getLogger(__name__)
-
-if not logger.handlers:
-    logging.basicConfig(
-        filename=LOG_FILE,
-        level=logging.INFO,
-        format="%(asctime)s | %(levelname)s | %(message)s",
-    )
+from src.logger import logger
 
 
 class DataCleaner:
@@ -314,8 +304,6 @@ class DataCleaner:
 
     def handle_outliers(self) -> None:
         """Cap IQR outliers only for unbounded monetary/impact metrics."""
-        # These columns have explicit business limits and should not be
-        # statistically capped after range validation.
         outlier_columns = {
             "records_affected",
             "ransom_demand_usd",
@@ -425,11 +413,8 @@ class DataCleaner:
         self.validate_numeric_columns()
         self.standardize_categories()
         self.normalize_boolean_columns()
-
-        # Business-rule limits are applied before statistical outlier treatment.
         self.validate_ranges()
         self.handle_outliers()
-
         self.final_validation()
         self.dataset_statistics()
         self.save_quality_report()
