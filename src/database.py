@@ -80,6 +80,20 @@ class DatabaseManager:
         if dataframe.isna().any().any():
             missing = dataframe.columns[dataframe.isna().any()].tolist()
             raise ValueError(f"Engineered dataset contains missing values: {missing}")
+
+        for column in NUMERIC_COLUMNS:
+            converted = pd.to_numeric(dataframe[column], errors="coerce")
+            if converted.isna().any() or not pd.Series(converted).map(pd.notna).all():
+                raise ValueError(f"Engineered dataset contains invalid numeric values in '{column}'.")
+            dataframe[column] = converted
+
+        for column in BOOLEAN_COLUMNS:
+            values = dataframe[column]
+            valid = values.map(lambda value: isinstance(value, (bool, int, float)) and value in (0, 1, 0.0, 1.0))
+            if not valid.all():
+                raise ValueError(f"Engineered dataset contains invalid boolean values in '{column}'.")
+            dataframe[column] = values.astype(int)
+
         return dataframe
 
     @staticmethod
