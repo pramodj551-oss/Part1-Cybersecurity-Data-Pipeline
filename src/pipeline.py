@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 
+import numpy as np
 import pandas as pd
 
 from src.config import ENGINEERED_DATA_FILE, EXPECTED_COLUMNS, SUMMARY_REPORT_FILE
@@ -79,6 +80,12 @@ class AnalyticsPipeline:
             raise ValueError("Persisted engineered dataset has invalid incident_id values.")
         if saved_df.isna().any().any():
             raise ValueError("Persisted engineered dataset contains missing values.")
+
+        numeric = saved_df.select_dtypes(include=[np.number])
+        if not numeric.empty and not np.isfinite(numeric.to_numpy()).all():
+            raise ValueError(
+                "Persisted engineered dataset contains non-finite numeric values."
+            )
 
     def store_database(self) -> int:
         logger.info("STEP 4 : DATABASE STORAGE")
