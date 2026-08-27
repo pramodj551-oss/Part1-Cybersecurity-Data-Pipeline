@@ -11,6 +11,7 @@ from src.config import LOG_FILE
 logger = logging.getLogger("CyberAnalytics")
 
 logger.setLevel(logging.INFO)
+logger.propagate = False
 
 if not logger.handlers:
     LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
