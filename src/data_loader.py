@@ -8,26 +8,15 @@ Author: Pramod Prakash Jadhav
 
 from __future__ import annotations
 
-import logging
-
 import pandas as pd
 
 from src.config import (
     CSV_ENCODING,
     CSV_SEPARATOR,
     EXPECTED_COLUMNS,
-    LOG_FILE,
     RAW_DATA_FILE,
 )
-
-logger = logging.getLogger(__name__)
-
-if not logger.handlers:
-    logging.basicConfig(
-        filename=LOG_FILE,
-        level=logging.INFO,
-        format="%(asctime)s | %(levelname)s | %(message)s",
-    )
+from src.logger import logger
 
 
 class DataLoader:
@@ -81,8 +70,6 @@ class DataLoader:
 
         missing = sorted(set(EXPECTED_COLUMNS) - set(df.columns))
         if missing:
-            # Keep the explicit phrase expected by existing regression tests
-            # while retaining a precise description for users and CI logs.
             raise ValueError(f"Missing Columns / required columns: {missing}")
 
     @staticmethod
