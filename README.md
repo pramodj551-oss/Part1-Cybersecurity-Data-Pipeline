@@ -1,8 +1,21 @@
 # 🛡️ AI-Powered Cybersecurity Incident Analytics Pipeline
 
+[![Python CI](https://github.com/pramodj551-oss/Part1-Cybersecurity-Data-Pipeline/actions/workflows/python.yml/badge.svg)](https://github.com/pramodj551-oss/Part1-Cybersecurity-Data-Pipeline/actions/workflows/python.yml)
+
 **Part 1 — End-to-End Applied AI & ML Data Product Capstone**
 
 A production-style Python ETL pipeline that transforms raw cybersecurity incident data into a clean, validated, feature-engineered and query-ready dataset for analytics and future ML/AI applications.
+
+## Project Highlights
+
+- End-to-end cybersecurity ETL pipeline
+- Automated schema and data-quality validation
+- Feature engineering for risk analytics
+- SQLite analytical data store
+- 29 automated SQL integration queries
+- Automated EDA notebook execution and runtime validation
+- GitHub Actions CI with regression, E2E and artifact validation
+- Python 3.11 reproducible environment
 
 ## Quick Start
 
