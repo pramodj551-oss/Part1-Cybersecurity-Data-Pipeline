@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from src.config import (
@@ -361,6 +362,12 @@ class DataCleaner:
         if missing_values > 0:
             raise ValueError(
                 f"{missing_values} missing value(s) remain after cleaning."
+            )
+
+        numeric_columns = self.df.select_dtypes(include=[np.number])
+        if not numeric_columns.empty and not np.isfinite(numeric_columns.to_numpy()).all():
+            raise ValueError(
+                "Final validation failed: non-finite numeric values detected."
             )
 
         range_checks = {
