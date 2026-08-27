@@ -86,6 +86,28 @@ def test_feature_engineering_handles_zero_denominators(valid_dataframe):
     assert (engineered["response_efficiency"] >= 0).all()
 
 
+def test_feature_engineering_rejects_non_finite_values(valid_dataframe):
+    """Feature engineering must reject non-finite numeric input."""
+    invalid = valid_dataframe.copy()
+    invalid.loc[0, "records_affected"] = float("inf")
+
+    cleaned = DataCleaner(invalid).run()
+
+    with pytest.raises(ValueError, match="invalid numeric"):
+        FeatureEngineer(cleaned).run()
+
+
+def test_feature_engineering_rejects_future_incident_date(valid_dataframe):
+    """Future incident dates must be rejected relative to the configured reference date."""
+    invalid = valid_dataframe.copy()
+    invalid.loc[0, "incident_date"] = "2099-01-01"
+
+    cleaned = DataCleaner(invalid).run()
+
+    with pytest.raises(ValueError, match="future"):
+        FeatureEngineer(cleaned).run()
+
+
 def test_expected_schema_is_complete(valid_dataframe):
     """Regression guard for accidental schema drift."""
     assert set(EXPECTED_COLUMNS).issubset(valid_dataframe.columns)
