@@ -98,3 +98,7 @@ DATABASE_TABLE = "cybersecurity_incidents"
 
 # Reproducibility
 RANDOM_SEED = 42
+# Fixed reference date used by deterministic feature engineering.
+# Override deliberately for a new analysis period rather than relying on
+# the machine's current date/time.
+ANALYSIS_REFERENCE_DATE = "2025-12-31"
