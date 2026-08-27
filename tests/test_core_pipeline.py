@@ -18,7 +18,7 @@ def valid_dataframe() -> pd.DataFrame:
     return pd.DataFrame(
         {
             "incident_id": ["INC-001", "INC-002", "INC-003"],
-            "incident_date": ["2026-01-05", "2026-01-10", "2026-01-17"],
+            "incident_date": ["2025-12-05", "2025-12-10", "2025-12-17"],
             "sector": ["Finance", "Healthcare", "Finance"],
             "region": ["West", "West", "North"],
             "attack_type": ["Ransomware", "Phishing", "Ransomware"],
@@ -89,6 +89,7 @@ def test_feature_engineering_handles_zero_denominators(valid_dataframe):
 def test_feature_engineering_rejects_non_finite_values(valid_dataframe):
     """Feature engineering must reject non-finite numeric input."""
     invalid = valid_dataframe.copy()
+    invalid["records_affected"] = invalid["records_affected"].astype(float)
     invalid.loc[0, "records_affected"] = float("inf")
 
     cleaned = DataCleaner(invalid).run()
