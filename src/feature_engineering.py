@@ -6,6 +6,7 @@ Author: Pramod Prakash Jadhav
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import numpy as np
@@ -23,6 +24,27 @@ class FeatureEngineer:
             raise TypeError("dataframe must be a pandas DataFrame")
         self.df = dataframe.copy()
         logger.info("FeatureEngineer initialized with %d rows.", len(self.df))
+
+    @staticmethod
+    def _convert_boolean(value: Any) -> bool:
+        """Strictly convert supported boolean representations."""
+        if pd.isna(value):
+            raise ValueError("Boolean value cannot be missing.")
+        if isinstance(value, (bool, np.bool_)):
+            return bool(value)
+        if isinstance(value, (int, float, np.integer, np.floating)) and value in (0, 1):
+            return bool(value)
+
+        normalized = str(value).strip().lower()
+        if normalized in {"true", "t", "yes", "y", "1"}:
+            return True
+        if normalized in {"false", "f", "no", "n", "0"}:
+            return False
+
+        raise ValueError(
+            f"Invalid boolean value: {value!r}. "
+            "Expected true/false, yes/no, y/n, t/f, or 1/0."
+        )
 
     def validate_input(self) -> None:
         """Validate the cleaned dataset before feature generation."""
@@ -53,7 +75,12 @@ class FeatureEngineer:
         for column in ("resolved_within_7_days", "data_exfiltration", "zero_day_used"):
             if self.df[column].isna().any():
                 raise ValueError(f"Boolean column '{column}' contains missing values.")
-            self.df[column] = self.df[column].astype(bool)
+            try:
+                self.df[column] = self.df[column].apply(self._convert_boolean).astype(bool)
+            except ValueError as error:
+                raise ValueError(
+                    f"Boolean column '{column}' contains invalid values."
+                ) from error
         logger.info("Feature engineering input validation passed.")
 
     def create_date_features(self) -> None:
