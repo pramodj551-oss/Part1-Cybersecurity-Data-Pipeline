@@ -8,6 +8,8 @@ Author: Pramod Prakash Jadhav
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pandas as pd
 
 from src.config import (
@@ -23,7 +25,7 @@ class DataLoader:
     """Load and validate the raw cybersecurity incident dataset."""
 
     def __init__(self, file_path=RAW_DATA_FILE):
-        self.file_path = file_path
+        self.file_path = Path(file_path)
 
     def validate_file(self) -> None:
         """Validate that the configured dataset file exists."""
