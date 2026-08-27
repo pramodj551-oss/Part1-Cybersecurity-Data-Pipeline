@@ -68,10 +68,39 @@ class DataCleaner:
 
     @staticmethod
     def normalize_text(value: Any) -> str:
-        """Normalize categorical text values."""
+        """Normalize categorical text while preserving common security acronyms."""
         if pd.isna(value):
             return DEFAULT_CATEGORICAL_VALUE
-        return str(value).strip().title()
+
+        text = " ".join(str(value).strip().split())
+
+        if not text:
+            return DEFAULT_CATEGORICAL_VALUE
+
+        normalized = text.title()
+
+        acronyms = {
+            "Api": "API",
+            "Apt": "APT",
+            "Ddos": "DDoS",
+            "Dos": "DoS",
+            "Dns": "DNS",
+            "Http": "HTTP",
+            "Https": "HTTPS",
+            "Iot": "IoT",
+            "Ip": "IP",
+            "Mfa": "MFA",
+            "Rdp": "RDP",
+            "Sql": "SQL",
+            "Ssh": "SSH",
+            "Vpn": "VPN",
+            "Xss": "XSS",
+        }
+
+        for incorrect, correct in acronyms.items():
+            normalized = normalized.replace(incorrect, correct)
+
+        return normalized
 
     @staticmethod
     def convert_boolean(value: Any) -> bool:
