@@ -6,7 +6,6 @@ Author: Pramod Prakash Jadhav
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 import numpy as np
@@ -57,9 +56,17 @@ class FeatureEngineer:
             raise ValueError("incident_id contains missing values.")
         if self.df["incident_id"].duplicated().any():
             raise ValueError("incident_id contains duplicate values.")
-        self.df["incident_date"] = pd.to_datetime(self.df["incident_date"], errors="coerce")
+
+        self.df["incident_date"] = pd.to_datetime(
+            self.df["incident_date"],
+            format="%Y-%m-%d",
+            errors="coerce",
+        )
         if self.df["incident_date"].isna().any():
-            raise ValueError("incident_date contains invalid or missing values.")
+            raise ValueError(
+                "incident_date contains invalid or missing values. "
+                "Expected YYYY-MM-DD format."
+            )
 
         numeric_columns = [
             "records_affected", "downtime_hours", "ransom_demand_usd",
@@ -99,9 +106,6 @@ class FeatureEngineer:
         reference_date = pd.Timestamp(ANALYSIS_REFERENCE_DATE).normalize()
         incident_dates = self.df["incident_date"].dt.normalize()
         age = (reference_date - incident_dates).dt.days
-        # Test fixtures and newly ingested records may legitimately be newer than
-        # the configured historical analysis date. Keep the feature non-negative
-        # and deterministic rather than failing the complete pipeline.
         self.df["incident_age_days"] = age.clip(lower=0).astype(int)
 
     def create_quarter_label(self) -> None:
