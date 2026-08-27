@@ -36,19 +36,14 @@ class FeatureEngineer:
         """Validate the cleaned dataset before feature generation."""
         if self.df.empty:
             raise ValueError("Input dataset is empty.")
-
         missing = [c for c in EXPECTED_COLUMNS if c not in self.df.columns]
         if missing:
             raise ValueError(f"Missing required input columns: {missing}")
-
         if self.df["incident_id"].isna().any():
             raise ValueError("incident_id contains missing values.")
         if self.df["incident_id"].duplicated().any():
             raise ValueError("incident_id contains duplicate values.")
-
-        self.df["incident_date"] = pd.to_datetime(
-            self.df["incident_date"], errors="coerce"
-        )
+        self.df["incident_date"] = pd.to_datetime(self.df["incident_date"], errors="coerce")
         if self.df["incident_date"].isna().any():
             raise ValueError("incident_date contains invalid or missing values.")
 
@@ -67,7 +62,6 @@ class FeatureEngineer:
             if self.df[column].isna().any():
                 raise ValueError(f"Boolean column '{column}' contains missing values.")
             self.df[column] = self.df[column].astype(bool)
-
         logger.info("Feature engineering input validation passed.")
 
     def create_date_features(self) -> None:
@@ -82,15 +76,28 @@ class FeatureEngineer:
         self.df["month_name"] = date.dt.month_name()
 
     def create_incident_age(self) -> None:
-        latest_date = self.df["incident_date"].max()
-        self.df["incident_age_days"] = (latest_date - self.df["incident_date"]).dt.days
+        """Create a deterministic age feature using a fixed analysis reference date.
+
+        The reference date is the configured analysis date when available; otherwise
+        the dataset's maximum incident date is used as a backward-compatible fallback.
+        This avoids dependence on the current wall-clock date while keeping historical
+        datasets reproducible.
+        """
+        configured_reference = getattr(__import__("src.config", fromlist=["ANALYSIS_REFERENCE_DATE"]), "ANALYSIS_REFERENCE_DATE", None)
+        if configured_reference is not None:
+            reference_date = pd.Timestamp(configured_reference).normalize()
+        else:
+            reference_date = self.df["incident_date"].max().normalize()
+        age = (reference_date - self.df["incident_date"].dt.normalize()).dt.days
+        if (age < 0).any():
+            raise ValueError("incident_date contains values after the analysis reference date.")
+        self.df["incident_age_days"] = age.astype(int)
 
     def create_quarter_label(self) -> None:
         self.df["quarter_label"] = "Q" + self.df["incident_quarter"].astype(str)
 
     @staticmethod
     def _safe_ratio(numerator: pd.Series, denominator: pd.Series) -> pd.Series:
-        """Return numerator/denominator; undefined zero-denominator ratios become 0."""
         result = numerator.div(denominator.replace(0, np.nan))
         return result.replace([np.inf, -np.inf], np.nan).fillna(0.0)
 
@@ -101,9 +108,7 @@ class FeatureEngineer:
         self.df["fine_per_record"] = self._safe_ratio(
             self.df["regulatory_fine_usd"], self.df["records_affected"]
         ).round(2)
-        self.df["total_financial_impact"] = (
-            self.df["ransom_demand_usd"] + self.df["regulatory_fine_usd"]
-        )
+        self.df["total_financial_impact"] = self.df["ransom_demand_usd"] + self.df["regulatory_fine_usd"]
 
     def create_operational_features(self) -> None:
         self.df["downtime_per_record"] = self._safe_ratio(
@@ -112,7 +117,6 @@ class FeatureEngineer:
         self.df["response_efficiency"] = self._safe_ratio(
             self.df["response_team_size"], self.df["detection_time_hours"]
         ).round(2)
-
         bins = [-np.inf, 6, 24, 72, np.inf]
         labels = ["Very Fast", "Fast", "Moderate", "Slow"]
         self.df["detection_speed"] = pd.cut(
@@ -120,27 +124,18 @@ class FeatureEngineer:
         ).astype(str)
 
     def create_incident_cost_category(self) -> None:
-        """Create stable quartile categories even when values have few unique levels."""
         values = self.df["total_financial_impact"]
         rank = values.rank(method="average", pct=True)
         self.df["incident_cost_category"] = pd.cut(
-            rank,
-            bins=[-np.inf, 0.25, 0.50, 0.75, np.inf],
-            labels=["Low", "Medium", "High", "Critical"],
-            include_lowest=True,
+            rank, bins=[-np.inf, 0.25, 0.50, 0.75, np.inf],
+            labels=["Low", "Medium", "High", "Critical"], include_lowest=True,
         ).astype(str)
 
     def create_threshold_flags(self) -> None:
         self.df["high_severity_flag"] = (self.df["severity_score"] >= 8).astype(int)
-        self.df["high_ransom_flag"] = (
-            self.df["ransom_demand_usd"] >= self.df["ransom_demand_usd"].median()
-        ).astype(int)
-        self.df["large_breach_flag"] = (
-            self.df["records_affected"] >= self.df["records_affected"].median()
-        ).astype(int)
-        self.df["long_downtime_flag"] = (
-            self.df["downtime_hours"] >= self.df["downtime_hours"].median()
-        ).astype(int)
+        self.df["high_ransom_flag"] = (self.df["ransom_demand_usd"] >= self.df["ransom_demand_usd"].median()).astype(int)
+        self.df["large_breach_flag"] = (self.df["records_affected"] >= self.df["records_affected"].median()).astype(int)
+        self.df["long_downtime_flag"] = (self.df["downtime_hours"] >= self.df["downtime_hours"].median()).astype(int)
 
     def _add_frequency_feature(self, source: str, target: str) -> None:
         frequency = self.df[source].value_counts(dropna=False)
@@ -157,18 +152,14 @@ class FeatureEngineer:
             self.df["severity_score"] * 3
             + self.df["zero_day_used"].astype(int) * 2
             + self.df["data_exfiltration"].astype(int) * 2
-            + self.df["high_ransom_flag"]
-            + self.df["large_breach_flag"]
+            + self.df["high_ransom_flag"] + self.df["large_breach_flag"]
         )
         self.df["incident_complexity_score"] = (
-            self.df["severity_score"]
-            + np.log1p(self.df["records_affected"])
-            + self.df["downtime_hours"] / 24
-            + self.df["detection_time_hours"] / 24
+            self.df["severity_score"] + np.log1p(self.df["records_affected"])
+            + self.df["downtime_hours"] / 24 + self.df["detection_time_hours"] / 24
         ).round(2)
 
     def validate_output(self, original_columns: list[str], original_rows: int) -> None:
-        """Validate generated features and guard against accidental row loss/leakage."""
         if len(self.df) != original_rows:
             raise ValueError("Feature engineering changed the number of rows.")
         if self.df["incident_id"].duplicated().any():
@@ -176,25 +167,20 @@ class FeatureEngineer:
         if self.df.isna().any().any():
             missing = self.df.columns[self.df.isna().any()].tolist()
             raise ValueError(f"Feature engineering produced missing values: {missing}")
-
         numeric = self.df.select_dtypes(include=[np.number])
         if not np.isfinite(numeric.to_numpy()).all():
             raise ValueError("Feature engineering produced non-finite numeric values.")
-
         created = [c for c in self.df.columns if c not in original_columns]
         if not created:
             raise ValueError("No engineered features were created.")
         logger.info("Feature output validation passed: %d new features.", len(created))
 
     def run(self) -> pd.DataFrame:
-        """Execute feature engineering in dependency-safe order."""
         logger.info("=" * 60)
         logger.info("Starting Feature Engineering Pipeline")
         logger.info("=" * 60)
-
         original_columns = self.df.columns.tolist()
         original_rows = len(self.df)
-
         self.validate_input()
         self.create_date_features()
         self.create_incident_age()
@@ -206,14 +192,12 @@ class FeatureEngineer:
         self.create_frequency_features()
         self.create_scores()
         self.validate_output(original_columns, original_rows)
-
         logger.info("Feature Engineering Pipeline Completed Successfully")
         return self.df
 
 
 if __name__ == "__main__":
     from src.config import CLEAN_DATA_FILE
-
     try:
         clean_df = pd.read_csv(CLEAN_DATA_FILE, parse_dates=["incident_date"])
         engineered_df = FeatureEngineer(clean_df).run()
