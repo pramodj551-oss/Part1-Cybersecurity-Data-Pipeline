@@ -88,14 +88,14 @@ def test_feature_engineering_handles_zero_denominators(valid_dataframe):
 
 def test_feature_engineering_rejects_non_finite_values(valid_dataframe):
     """Feature engineering must reject non-finite numeric input."""
-    invalid = valid_dataframe.copy()
+    cleaned = DataCleaner(valid_dataframe).run()
+
+    invalid = cleaned.copy()
     invalid["records_affected"] = invalid["records_affected"].astype(float)
     invalid.loc[0, "records_affected"] = float("inf")
 
-    cleaned = DataCleaner(invalid).run()
-
-    with pytest.raises(ValueError, match="invalid numeric"):
-        FeatureEngineer(cleaned).run()
+    with pytest.raises(ValueError, match="non-finite numeric values detected"):
+        FeatureEngineer(invalid).run()
 
 
 def test_feature_engineering_rejects_future_incident_date(valid_dataframe):
