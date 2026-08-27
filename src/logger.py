@@ -20,7 +20,7 @@ if not logger.handlers:
         "%(asctime)s | %(levelname)s | %(message)s"
     )
 
-    file_handler = logging.FileHandler(LOG_FILE)
+    file_handler = logging.FileHandler(LOG_FILE, encoding="utf-8")
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
 
