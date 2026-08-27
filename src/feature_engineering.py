@@ -105,8 +105,13 @@ class FeatureEngineer:
         """Create incident age from the configured deterministic reference date."""
         reference_date = pd.Timestamp(ANALYSIS_REFERENCE_DATE).normalize()
         incident_dates = self.df["incident_date"].dt.normalize()
+        if (incident_dates > reference_date).any():
+            raise ValueError(
+                "incident_date contains future dates relative to "
+                "ANALYSIS_REFERENCE_DATE."
+            )
         age = (reference_date - incident_dates).dt.days
-        self.df["incident_age_days"] = age.clip(lower=0).astype(int)
+        self.df["incident_age_days"] = age.astype(int)
 
     def create_quarter_label(self) -> None:
         self.df["quarter_label"] = "Q" + self.df["incident_quarter"].astype(str)
