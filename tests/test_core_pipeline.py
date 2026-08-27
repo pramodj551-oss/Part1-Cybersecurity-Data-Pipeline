@@ -94,7 +94,7 @@ def test_feature_engineering_rejects_non_finite_values(valid_dataframe):
     invalid["records_affected"] = invalid["records_affected"].astype(float)
     invalid.loc[0, "records_affected"] = float("inf")
 
-    with pytest.raises(ValueError, match="non-finite numeric values detected"):
+    with pytest.raises(ValueError, match="contains invalid numeric values"):
         FeatureEngineer(invalid).run()
 
 
