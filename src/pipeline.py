@@ -7,7 +7,7 @@ import time
 
 import pandas as pd
 
-from src.config import ENGINEERED_DATA_FILE, LOG_FILE, SUMMARY_REPORT_FILE
+from src.config import ENGINEERED_DATA_FILE, EXPECTED_COLUMNS, LOG_FILE, SUMMARY_REPORT_FILE
 from src.data_cleaning import DataCleaner
 from src.data_loader import DataLoader
 from src.database import DatabaseManager
@@ -64,9 +64,29 @@ class AnalyticsPipeline:
             raise ValueError("Engineered dataset is not available.")
         ENGINEERED_DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
         self.engineered_df.to_csv(ENGINEERED_DATA_FILE, index=False)
+        self._validate_saved_engineered_dataset()
+        logger.info("Engineered dataset saved to %s", ENGINEERED_DATA_FILE)
+
+    def _validate_saved_engineered_dataset(self) -> None:
+        """Validate the persisted engineered CSV, not only the in-memory dataframe."""
         if not ENGINEERED_DATA_FILE.exists():
             raise IOError(f"Failed to create {ENGINEERED_DATA_FILE}")
-        logger.info("Engineered dataset saved to %s", ENGINEERED_DATA_FILE)
+        if ENGINEERED_DATA_FILE.stat().st_size == 0:
+            raise IOError(f"Engineered dataset is empty on disk: {ENGINEERED_DATA_FILE}")
+        saved_df = pd.read_csv(ENGINEERED_DATA_FILE)
+        if saved_df.empty:
+            raise ValueError("Persisted engineered dataset contains no rows.")
+        missing = [column for column in EXPECTED_COLUMNS if column not in saved_df.columns]
+        if missing:
+            raise ValueError(f"Persisted engineered dataset is missing required columns: {missing}")
+        if self.engineered_df is not None and len(saved_df) != len(self.engineered_df):
+            raise ValueError(
+                f"Persisted engineered row-count mismatch: expected {len(self.engineered_df)}, got {len(saved_df)}."
+            )
+        if saved_df["incident_id"].isna().any() or saved_df["incident_id"].duplicated().any():
+            raise ValueError("Persisted engineered dataset has invalid incident_id values.")
+        if saved_df.isna().any().any():
+            raise ValueError("Persisted engineered dataset contains missing values.")
 
     def store_database(self) -> int:
         logger.info("STEP 4 : DATABASE STORAGE")
@@ -76,9 +96,6 @@ class AnalyticsPipeline:
         manager = self.database_manager
         manager.connect()
         try:
-            # Create/evolve the DB schema from the exact engineered dataframe
-            # before inserting it. This prevents engineered columns from being
-            # silently dropped or causing to_sql schema mismatches.
             manager.create_table(self.engineered_df)
             manager.verify_dataframe_schema(self.engineered_df)
             manager.replace_table(self.engineered_df)
@@ -118,6 +135,7 @@ class AnalyticsPipeline:
                 f"Database/output row-count mismatch: expected {len(self.engineered_df)}, got {database_rows}."
             )
 
+        self._validate_saved_engineered_dataset()
         logger.info("Pipeline validation successful.")
 
     def generate_summary(self, database_rows: int | None = None) -> dict[str, object]:
@@ -135,10 +153,15 @@ class AnalyticsPipeline:
         }
 
     def save_summary(self, database_rows: int | None = None) -> dict[str, object]:
-        """Save the configured summary report as CSV."""
+        """Save and verify the configured summary report as CSV."""
         summary = self.generate_summary(database_rows)
         SUMMARY_REPORT_FILE.parent.mkdir(parents=True, exist_ok=True)
         pd.DataFrame([summary]).to_csv(SUMMARY_REPORT_FILE, index=False)
+        if not SUMMARY_REPORT_FILE.exists() or SUMMARY_REPORT_FILE.stat().st_size == 0:
+            raise IOError(f"Failed to create {SUMMARY_REPORT_FILE}")
+        persisted_summary = pd.read_csv(SUMMARY_REPORT_FILE)
+        if persisted_summary.empty or persisted_summary.iloc[0]["status"] != "SUCCESS":
+            raise ValueError("Persisted summary report is invalid.")
         logger.info("Summary report saved to %s", SUMMARY_REPORT_FILE)
         return summary
 
