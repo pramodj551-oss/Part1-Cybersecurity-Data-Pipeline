@@ -2,24 +2,16 @@
 
 from __future__ import annotations
 
-import logging
 import time
 
 import pandas as pd
 
-from src.config import ENGINEERED_DATA_FILE, EXPECTED_COLUMNS, LOG_FILE, SUMMARY_REPORT_FILE
+from src.config import ENGINEERED_DATA_FILE, EXPECTED_COLUMNS, SUMMARY_REPORT_FILE
 from src.data_cleaning import DataCleaner
 from src.data_loader import DataLoader
 from src.database import DatabaseManager
 from src.feature_engineering import FeatureEngineer
-
-logger = logging.getLogger(__name__)
-if not logger.handlers:
-    logging.basicConfig(
-        filename=LOG_FILE,
-        level=logging.INFO,
-        format="%(asctime)s | %(levelname)s | %(message)s",
-    )
+from src.logger import logger
 
 
 class AnalyticsPipeline:
