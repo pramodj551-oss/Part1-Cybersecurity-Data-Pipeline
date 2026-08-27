@@ -2,20 +2,11 @@
 
 from __future__ import annotations
 
-import logging
 import sys
 import time
 
-from src.config import LOG_FILE
+from src.logger import logger
 from src.pipeline import AnalyticsPipeline
-
-logger = logging.getLogger(__name__)
-if not logger.handlers:
-    logging.basicConfig(
-        filename=LOG_FILE,
-        level=logging.INFO,
-        format="%(asctime)s | %(levelname)s | %(message)s",
-    )
 
 
 def main() -> int:
