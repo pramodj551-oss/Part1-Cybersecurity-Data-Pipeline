@@ -12,6 +12,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from src.config import (
@@ -73,7 +74,7 @@ class DatabaseManager:
 
         for column in NUMERIC_COLUMNS:
             converted = pd.to_numeric(dataframe[column], errors="coerce")
-            if converted.isna().any() or not pd.Series(converted).map(pd.notna).all():
+            if converted.isna().any() or not np.isfinite(converted.to_numpy()).all():
                 raise ValueError(f"Engineered dataset contains invalid numeric values in '{column}'.")
             dataframe[column] = converted
 
