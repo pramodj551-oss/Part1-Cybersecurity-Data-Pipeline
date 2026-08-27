@@ -62,7 +62,14 @@ class DataLoader:
 
     @staticmethod
     def validate_schema(df: pd.DataFrame) -> None:
-        """Validate required columns and reject duplicate column names."""
+        """Validate required columns and reject duplicate/empty column names."""
+        empty_columns = [
+            column for column in df.columns
+            if not str(column).strip()
+        ]
+        if empty_columns:
+            raise ValueError("Dataset contains empty or whitespace-only column name(s).")
+
         duplicated_columns = df.columns[df.columns.duplicated()].tolist()
         if duplicated_columns:
             raise ValueError(
